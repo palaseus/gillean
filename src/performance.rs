@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 /// Performance optimization manager for the blockchain
 pub struct PerformanceManager {
     cache_manager: Arc<CacheManager>,
+    #[allow(dead_code)]
     parallel_processor: Arc<ParallelProcessor>,
     memory_optimizer: Arc<MemoryOptimizer>,
     metrics_collector: Arc<MetricsCollector>,
@@ -155,6 +156,7 @@ impl CacheManager {
 pub struct ParallelProcessor {
     task_queue: mpsc::UnboundedSender<Box<dyn Task + Send>>,
     workers: Vec<JoinHandle<()>>,
+    #[allow(dead_code)]
     config: ParallelConfig,
 }
 

@@ -356,6 +356,7 @@ pub struct MonitoringDashboard {
     metrics: Arc<RwLock<HashMap<String, Metric>>>,
     alerts: Arc<Mutex<Vec<Alert>>>,
     dashboards: Arc<RwLock<HashMap<String, Dashboard>>>,
+    #[allow(dead_code)]
     config: MonitoringConfig,
 }
 

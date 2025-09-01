@@ -59,9 +59,12 @@ pub struct CryptoManager {
 #[derive(Debug, Clone)]
 struct CryptoKey {
     key: Vec<u8>,
+    #[allow(dead_code)]
     created_at: Instant,
     expires_at: Instant,
+    #[allow(dead_code)]
     usage_count: u64,
+    #[allow(dead_code)]
     algorithm: EncryptionAlgorithm,
 }
 
@@ -173,6 +176,7 @@ impl CryptoManager {
 pub struct FormalVerifier {
     verification_rules: Arc<RwLock<HashMap<String, VerificationRule>>>,
     verification_results: Arc<Mutex<Vec<VerificationResult>>>,
+    #[allow(dead_code)]
     config: FormalVerificationConfig,
 }
 
@@ -427,6 +431,7 @@ pub struct AuditReport {
 pub struct ThreatDetector {
     threat_patterns: Arc<RwLock<HashMap<String, ThreatPattern>>>,
     detected_threats: Arc<Mutex<Vec<DetectedThreat>>>,
+    #[allow(dead_code)]
     config: ThreatDetectionConfig,
 }
 

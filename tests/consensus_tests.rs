@@ -177,8 +177,8 @@ impl ConsensusManager {
         }
 
         // Distribute rewards to validators
-        for (address, reward) in validator_rewards {
-            if let Some(validator) = self.validators.get_mut(&address) {
+        for (address, reward) in &validator_rewards {
+            if let Some(_validator) = self.validators.get_mut(address) {
                 // In a real implementation, this would transfer tokens
                 println!("Validator {} earned {} rewards", address, reward);
             }
@@ -224,7 +224,7 @@ impl ConsensusManager {
         }
     }
 
-    fn propose_dpos_block(&mut self, validator_address: &str, transactions: Vec<String>) -> Result<String> {
+    fn propose_dpos_block(&mut self, validator_address: &str, _transactions: Vec<String>) -> Result<String> {
         if !self.validators.contains_key(validator_address) {
             return Err(BlockchainError::InvalidInput("Validator not found".to_string()));
         }
@@ -248,7 +248,7 @@ impl ConsensusManager {
         Ok(block_hash)
     }
 
-    fn propose_pbft_block(&mut self, validator_address: &str, transactions: Vec<String>) -> Result<String> {
+    fn propose_pbft_block(&mut self, validator_address: &str, _transactions: Vec<String>) -> Result<String> {
         if let Some(pbft_state) = &mut self.pbft_state {
             if pbft_state.primary != validator_address {
                 return Err(BlockchainError::InvalidInput("Only primary can propose blocks".to_string()));
@@ -272,7 +272,7 @@ impl ConsensusManager {
         }
     }
 
-    fn validate_dpos_block(&mut self, block_hash: &str, validator_address: &str) -> Result<bool> {
+    fn validate_dpos_block(&mut self, _block_hash: &str, validator_address: &str) -> Result<bool> {
         if !self.validators.contains_key(validator_address) {
             return Err(BlockchainError::InvalidInput("Validator not found".to_string()));
         }
@@ -539,7 +539,7 @@ impl ConsensusSuite {
 
         // Propose block (only primary can propose)
         let transactions = vec!["tx1".to_string(), "tx2".to_string()];
-        let block_hash = manager.propose_block("validator1", transactions)?;
+        let block_hash = manager.propose_block("validator1", transactions.clone())?;
 
         assert!(!block_hash.is_empty());
 

@@ -1,7 +1,7 @@
-use gillean::{Blockchain, Transaction, BlockchainError};
+use gillean::{Blockchain, BlockchainError, Transaction};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use uuid::Uuid;
+
 
 // AI Integration Types
 #[derive(Debug, Clone, PartialEq)]

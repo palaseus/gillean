@@ -1,5 +1,5 @@
 use gillean::blockchain::Blockchain;
-use gillean::transaction::Transaction;
+use gillean::error::BlockchainError;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -121,9 +121,9 @@ impl GovernanceManager {
         proposal_type: ProposalType,
         proposer: &str,
         deposit: f64,
-    ) -> Result<String, String> {
+    ) -> Result<String, BlockchainError> {
         if deposit < self.min_proposal_deposit {
-            return Err("Insufficient deposit for proposal creation".to_string());
+            return Err(BlockchainError::ValidatorError("Insufficient deposit for proposal creation".to_string()));
         }
 
         let now = SystemTime::now()
@@ -159,9 +159,9 @@ impl GovernanceManager {
         proposal_id: &str,
         voter: &str,
         vote_type: VoteType,
-    ) -> Result<(), String> {
+    ) -> Result<(), BlockchainError> {
         let proposal = self.proposals.get_mut(proposal_id)
-            .ok_or("Proposal not found")?;
+            .ok_or(BlockchainError::ValidatorError("Proposal not found".to_string()))?;
 
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -169,11 +169,11 @@ impl GovernanceManager {
             .as_secs();
 
         if now < proposal.voting_start || now > proposal.voting_end {
-            return Err("Voting period is not active".to_string());
+            return Err(BlockchainError::ValidatorError("Voting period is not active".to_string()));
         }
 
         if proposal.status != ProposalStatus::Active {
-            return Err("Proposal is not active for voting".to_string());
+            return Err(BlockchainError::ValidatorError("Proposal is not active for voting".to_string()));
         }
 
         let voting_power = self.governance_token.holders.get(voter)
@@ -181,13 +181,13 @@ impl GovernanceManager {
             .unwrap_or(0.0);
 
         if voting_power == 0.0 {
-            return Err("No voting power available".to_string());
+            return Err(BlockchainError::ValidatorError("No voting power available".to_string()));
         }
 
         // Check if already voted
         let votes = self.votes.entry(proposal_id.to_string()).or_insert_with(Vec::new);
         if votes.iter().any(|v| v.voter == voter) {
-            return Err("Already voted on this proposal".to_string());
+            return Err(BlockchainError::ValidatorError("Already voted on this proposal".to_string()));
         }
 
         let vote = Vote {
@@ -211,9 +211,9 @@ impl GovernanceManager {
         Ok(())
     }
 
-    pub fn finalize_proposal(&mut self, proposal_id: &str) -> Result<(), String> {
+    pub fn finalize_proposal(&mut self, proposal_id: &str) -> Result<(), BlockchainError> {
         let proposal = self.proposals.get_mut(proposal_id)
-            .ok_or("Proposal not found")?;
+            .ok_or(BlockchainError::ValidatorError("Proposal not found".to_string()))?;
 
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -221,11 +221,11 @@ impl GovernanceManager {
             .as_secs();
 
         if now < proposal.voting_end {
-            return Err("Voting period has not ended".to_string());
+            return Err(BlockchainError::ValidatorError("Voting period has not ended".to_string()));
         }
 
         if proposal.status != ProposalStatus::Active {
-            return Err("Proposal is not active".to_string());
+            return Err(BlockchainError::ValidatorError("Proposal is not active".to_string()));
         }
 
         // Check quorum
@@ -258,12 +258,12 @@ impl GovernanceManager {
         Ok(())
     }
 
-    pub fn execute_timelock(&mut self, timelock_id: &str) -> Result<(), String> {
+    pub fn execute_timelock(&mut self, timelock_id: &str) -> Result<(), BlockchainError> {
         let timelock = self.timelock_contracts.get_mut(timelock_id)
-            .ok_or("Timelock contract not found")?;
+            .ok_or(BlockchainError::ValidatorError("Timelock contract not found".to_string()))?;
 
         if timelock.executed {
-            return Err("Timelock already executed".to_string());
+            return Err(BlockchainError::ValidatorError("Timelock already executed".to_string()));
         }
 
         let now = SystemTime::now()
@@ -272,15 +272,15 @@ impl GovernanceManager {
             .as_secs();
 
         if now < timelock.execution_time {
-            return Err("Timelock delay has not passed".to_string());
+            return Err(BlockchainError::ValidatorError("Timelock delay has not passed".to_string()));
         }
 
         // Execute the proposal
         let proposal = self.proposals.get_mut(&timelock.proposal_id)
-            .ok_or("Proposal not found")?;
+            .ok_or(BlockchainError::ValidatorError("Proposal not found".to_string()))?;
 
         if proposal.status != ProposalStatus::Passed {
-            return Err("Proposal is not passed".to_string());
+            return Err(BlockchainError::ValidatorError("Proposal is not passed".to_string()));
         }
 
         // Execute based on proposal type
@@ -313,9 +313,9 @@ impl GovernanceManager {
         Ok(())
     }
 
-    pub fn mint_governance_tokens(&mut self, recipient: &str, amount: f64) -> Result<(), String> {
+    pub fn mint_governance_tokens(&mut self, recipient: &str, amount: f64) -> Result<(), BlockchainError> {
         if self.governance_token.circulating_supply + amount > self.governance_token.total_supply {
-            return Err("Would exceed total supply".to_string());
+            return Err(BlockchainError::ValidatorError("Would exceed total supply".to_string()));
         }
 
         *self.governance_token.holders.entry(recipient.to_string()).or_insert(0.0) += amount;
@@ -365,7 +365,7 @@ impl GovernanceSuite {
         })
     }
 
-    pub async fn test_proposal_creation() -> Result<(), String> {
+    pub async fn test_proposal_creation() -> Result<(), BlockchainError> {
         println!("🧪 Testing proposal creation...");
         
         let blockchain = Blockchain::new_pos(10.0, 100.0, 21)?;
@@ -381,7 +381,7 @@ impl GovernanceSuite {
         )?;
 
         let proposal = manager.get_proposal(&proposal_id)
-            .ok_or("Proposal not found")?;
+            .ok_or(BlockchainError::ValidatorError("Proposal not found".to_string()))?;
 
         assert_eq!(proposal.title, "Increase Block Reward");
         assert_eq!(proposal.proposer, "alice");
@@ -401,7 +401,7 @@ impl GovernanceSuite {
         Ok(())
     }
 
-    pub async fn test_voting_mechanism() -> Result<(), String> {
+    pub async fn test_voting_mechanism() -> Result<(), BlockchainError> {
         println!("🧪 Testing voting mechanism...");
         
         let blockchain = Blockchain::new_pos(10.0, 100.0, 21)?;
@@ -427,7 +427,7 @@ impl GovernanceSuite {
         manager.vote(&proposal_id, "charlie", VoteType::Abstain)?;
 
         let proposal = manager.get_proposal(&proposal_id)
-            .ok_or("Proposal not found")?;
+            .ok_or(BlockchainError::ValidatorError("Proposal not found".to_string()))?;
 
         assert_eq!(proposal.yes_votes, 5000.0);
         assert_eq!(proposal.no_votes, 3000.0);
@@ -446,7 +446,7 @@ impl GovernanceSuite {
         Ok(())
     }
 
-    pub async fn test_proposal_finalization() -> Result<(), String> {
+    pub async fn test_proposal_finalization() -> Result<(), BlockchainError> {
         println!("🧪 Testing proposal finalization...");
         
         let blockchain = Blockchain::new_pos(10.0, 100.0, 21)?;
@@ -473,7 +473,7 @@ impl GovernanceSuite {
         manager.finalize_proposal(&proposal_id)?;
 
         let proposal = manager.get_proposal(&proposal_id)
-            .ok_or("Proposal not found")?;
+            .ok_or(BlockchainError::ValidatorError("Proposal not found".to_string()))?;
 
         assert_eq!(proposal.status, ProposalStatus::Passed);
         assert!(proposal.total_votes >= manager.governance_token.total_supply * proposal.quorum);
@@ -486,7 +486,7 @@ impl GovernanceSuite {
         Ok(())
     }
 
-    pub async fn test_timelock_execution() -> Result<(), String> {
+    pub async fn test_timelock_execution() -> Result<(), BlockchainError> {
         println!("🧪 Testing timelock execution...");
         
         let blockchain = Blockchain::new_pos(10.0, 100.0, 21)?;
@@ -525,7 +525,7 @@ impl GovernanceSuite {
         manager.execute_timelock(&timelock_id)?;
 
         let proposal = manager.get_proposal(&proposal_id)
-            .ok_or("Proposal not found")?;
+            .ok_or(BlockchainError::ValidatorError("Proposal not found".to_string()))?;
         assert_eq!(proposal.status, ProposalStatus::Executed);
 
         // Test double execution
@@ -536,7 +536,7 @@ impl GovernanceSuite {
         Ok(())
     }
 
-    pub async fn test_governance_token_management() -> Result<(), String> {
+    pub async fn test_governance_token_management() -> Result<(), BlockchainError> {
         println!("🧪 Testing governance token management...");
         
         let blockchain = Blockchain::new_pos(10.0, 100.0, 21)?;
@@ -563,7 +563,7 @@ impl GovernanceSuite {
         Ok(())
     }
 
-    pub async fn test_invalid_operations() -> Result<(), String> {
+    pub async fn test_invalid_operations() -> Result<(), BlockchainError> {
         println!("🧪 Testing invalid operations...");
         
         let blockchain = Blockchain::new_pos(10.0, 100.0, 21)?;
@@ -589,7 +589,7 @@ impl GovernanceSuite {
         Ok(())
     }
 
-    pub async fn test_governance_lifecycle() -> Result<(), String> {
+    pub async fn test_governance_lifecycle() -> Result<(), BlockchainError> {
         println!("🧪 Testing complete governance lifecycle...");
         
         let blockchain = Blockchain::new_pos(10.0, 100.0, 21)?;
@@ -634,9 +634,9 @@ impl GovernanceSuite {
         manager.finalize_proposal(&proposal2_id)?;
 
         let proposal1 = manager.get_proposal(&proposal1_id)
-            .ok_or("Proposal 1 not found")?;
+            .ok_or(BlockchainError::ValidatorError("Proposal 1 not found".to_string()))?;
         let proposal2 = manager.get_proposal(&proposal2_id)
-            .ok_or("Proposal 2 not found")?;
+            .ok_or(BlockchainError::ValidatorError("Proposal 2 not found".to_string()))?;
 
         // Proposal 1 should pass (Yes: 7000, No: 2000)
         assert_eq!(proposal1.status, ProposalStatus::Passed);
@@ -661,9 +661,9 @@ impl GovernanceSuite {
 
         // Verify execution
         let proposal1 = manager.get_proposal(&proposal1_id)
-            .ok_or("Proposal 1 not found")?;
+            .ok_or(BlockchainError::ValidatorError("Proposal 1 not found".to_string()))?;
         let proposal2 = manager.get_proposal(&proposal2_id)
-            .ok_or("Proposal 2 not found")?;
+            .ok_or(BlockchainError::ValidatorError("Proposal 2 not found".to_string()))?;
 
         assert_eq!(proposal1.status, ProposalStatus::Executed);
         assert_eq!(proposal2.status, ProposalStatus::Executed);
@@ -684,7 +684,7 @@ impl GovernanceSuite {
 // TEST RUNNER INTEGRATION
 // ============================================================================
 
-pub async fn run_governance_tests() -> Result<(), String> {
+    pub async fn run_governance_tests() -> Result<(), BlockchainError> {
     println!("🚀 Starting Governance Test Suite...");
     
     GovernanceSuite::test_proposal_creation().await?;

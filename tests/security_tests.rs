@@ -1,12 +1,12 @@
-use gillean::{
+use gillean::security::{
     SecurityManager, CryptoManager, AuditSystem, FormalVerifier, ThreatDetector,
     SecurityConfig, CryptoConfig, AuditConfig, FormalVerificationConfig, ThreatDetectionConfig,
-    SecurityStatus, SecurityAuditResult, EncryptionAlgorithm, VerificationRule, RuleType, Severity,
-    ThreatPattern, ThreatType, AuditResult
+    EncryptionAlgorithm, VerificationRule, RuleType, Severity,
+    ThreatPattern, ThreatType, AuditResult, VerificationStatus
 };
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::time::sleep;
+
 
 pub struct SecurityTestSuite {
     manager: Arc<SecurityManager>,
@@ -155,12 +155,12 @@ impl SecurityTestSuite {
         }
         "#;
 
-        let safe_results = verifier.verify_contract(safe_contract, "safe_contract").await;
+        let _safe_results = verifier.verify_contract(safe_contract, "safe_contract").await;
         let unsafe_results = verifier.verify_contract(unsafe_contract, "unsafe_contract").await;
 
         // Check that unsafe contract has failures
         let unsafe_failures = unsafe_results.iter()
-            .filter(|result| matches!(result.result, gillean::VerificationStatus::Failed))
+            .filter(|result| matches!(result.result, VerificationStatus::Failed))
             .count();
         assert!(unsafe_failures > 0);
 

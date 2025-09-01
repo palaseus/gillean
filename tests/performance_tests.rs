@@ -1,11 +1,11 @@
-use gillean::{
+use gillean::performance::{
     PerformanceManager, CacheManager, ParallelProcessor, MemoryOptimizer, MetricsCollector,
-    PerformanceConfig, CacheConfig, ParallelConfig, MemoryUsage, MetricsConfig,
-    PerformanceStats, OptimizationResult, Task
+    PerformanceConfig, CacheConfig, ParallelConfig, MetricsConfig,
+    Task
 };
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::time::sleep;
+
 
 pub struct PerformanceTestSuite {
     manager: Arc<PerformanceManager>,

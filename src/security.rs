@@ -680,6 +680,7 @@ impl SecurityManager {
             duration,
             findings: findings.clone(),
             severity: if findings.is_empty() { Severity::Low } else { Severity::Medium },
+            success: findings.is_empty(),
         }
     }
 }
@@ -698,12 +699,13 @@ pub struct SecurityAuditResult {
     pub duration: Duration,
     pub findings: Vec<String>,
     pub severity: Severity,
+    pub success: bool,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::time::sleep;
+
 
     #[tokio::test]
     async fn test_crypto_manager() {

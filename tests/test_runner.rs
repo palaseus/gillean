@@ -63,14 +63,14 @@ impl TestRunner {
         
         blockchain.add_transaction(
             tx1.sender.clone(),
-            tx1.recipient.clone(),
+            tx1.receiver.clone(),
             tx1.amount,
             tx1.message.clone(),
         )?;
         
         blockchain.add_transaction(
             tx2.sender.clone(),
-            tx2.recipient.clone(),
+            tx2.receiver.clone(),
             tx2.amount,
             tx2.message.clone(),
         )?;

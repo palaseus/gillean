@@ -36,7 +36,7 @@ pub enum DebugLevel {
     Trace,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum SDKLanguage {
     Rust,
     TypeScript,
@@ -972,7 +972,7 @@ pub struct DeveloperReport {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::time::sleep;
+
 
     #[tokio::test]
     async fn test_debugger() {
@@ -985,7 +985,7 @@ mod tests {
         let debugger = Debugger::new(config);
 
         // Test breakpoint management
-        let breakpoint_id = debugger.add_breakpoint("main.rs:10", Some("x > 5")).await;
+        let _breakpoint_id = debugger.add_breakpoint("main.rs:10", Some("x > 5")).await;
         debugger.log_debug(DebugLevel::Info, "Test message", "test").await;
 
         let debug_info = debugger.get_debug_info().await;

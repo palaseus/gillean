@@ -6,7 +6,7 @@ use uuid::Uuid;
 // Mobile Support Types
 #[derive(Debug, Clone, PartialEq)]
 pub enum Platform {
-    iOS,
+    IOs,
     Android,
     Flutter,
     ReactNative,
@@ -203,7 +203,7 @@ impl MobileManager {
         let mut blockchain = self.blockchain.lock().unwrap();
         blockchain.add_transaction(
             blockchain_tx.sender.clone(),
-            blockchain_tx.recipient.clone(),
+            blockchain_tx.receiver.clone(),
             blockchain_tx.amount,
             blockchain_tx.message.clone(),
         )?;
@@ -351,7 +351,7 @@ impl MobileSupportSuite {
         
         let device = MobileDevice {
             device_id: "device_123".to_string(),
-            platform: Platform::iOS,
+            platform: Platform::IOs,
             os_version: "15.0".to_string(),
             app_version: "1.0.0".to_string(),
             screen_resolution: (375, 812),
@@ -364,7 +364,7 @@ impl MobileSupportSuite {
         
         let devices = self._manager.devices.lock().unwrap();
         assert!(devices.contains_key("device_123"));
-        assert_eq!(devices.get("device_123").unwrap().platform, Platform::iOS);
+        assert_eq!(devices.get("device_123").unwrap().platform, Platform::IOs);
         
         Ok(())
     }
@@ -528,7 +528,7 @@ impl MobileSupportSuite {
         println!("  Testing multi-platform support...");
         
         let platforms = vec![
-            (Platform::iOS, "device_ios"),
+            (Platform::IOs, "device_ios"),
             (Platform::Android, "device_android"),
             (Platform::Flutter, "device_flutter"),
             (Platform::ReactNative, "device_rn"),
@@ -589,7 +589,7 @@ impl MobileSupportSuite {
             
             let device = MobileDevice {
                 device_id: device_id.clone(),
-                platform: Platform::iOS,
+                platform: Platform::IOs,
                 os_version: "15.0".to_string(),
                 app_version: "1.0.0".to_string(),
                 screen_resolution: (375, 812),

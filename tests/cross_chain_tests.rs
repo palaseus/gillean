@@ -203,21 +203,26 @@ impl CrossChainManager {
     }
 
     pub fn lock_funds(&mut self, tx_id: &str) -> Result<()> {
-        let transaction = self.transactions.get_mut(tx_id)
-            .ok_or_else(|| BlockchainError::InvalidInput("Transaction not found".to_string()))?;
-
-        if transaction.status != CrossChainStatus::Pending {
-            return Err(BlockchainError::InvalidInput("Transaction is not pending".to_string()));
-        }
+        let from_chain = {
+            let transaction = self.transactions.get(tx_id)
+                .ok_or_else(|| BlockchainError::InvalidInput("Transaction not found".to_string()))?;
+            
+            if transaction.status != CrossChainStatus::Pending {
+                return Err(BlockchainError::InvalidInput("Transaction is not pending".to_string()));
+            }
+            
+            transaction.from_chain.clone()
+        };
 
         // Simulate locking funds on source chain
-        match transaction.from_chain {
-            ChainType::Ethereum => self.lock_ethereum_funds(transaction)?,
-            ChainType::Bitcoin => self.lock_bitcoin_funds(transaction)?,
-            ChainType::Gillean => self.lock_gillean_funds(transaction)?,
+        match from_chain {
+            ChainType::Ethereum => self.lock_ethereum_funds_simple()?,
+            ChainType::Bitcoin => self.lock_bitcoin_funds_simple()?,
+            ChainType::Gillean => self.lock_gillean_funds_simple()?,
             _ => return Err(BlockchainError::InvalidInput("Unsupported source chain".to_string())),
         }
 
+        let transaction = self.transactions.get_mut(tx_id).unwrap();
         transaction.status = CrossChainStatus::Locked;
         Ok(())
     }
@@ -239,25 +244,30 @@ impl CrossChainManager {
     }
 
     pub fn release_funds(&mut self, tx_id: &str) -> Result<()> {
-        let transaction = self.transactions.get_mut(tx_id)
-            .ok_or_else(|| BlockchainError::InvalidInput("Transaction not found".to_string()))?;
+        let to_chain = {
+            let transaction = self.transactions.get(tx_id)
+                .ok_or_else(|| BlockchainError::InvalidInput("Transaction not found".to_string()))?;
 
-        if transaction.status != CrossChainStatus::Confirmed {
-            return Err(BlockchainError::InvalidInput("Transaction must be confirmed".to_string()));
-        }
+            if transaction.status != CrossChainStatus::Confirmed {
+                return Err(BlockchainError::InvalidInput("Transaction must be confirmed".to_string()));
+            }
 
-        if transaction.proof.is_none() {
-            return Err(BlockchainError::InvalidInput("Proof is required".to_string()));
-        }
+            if transaction.proof.is_none() {
+                return Err(BlockchainError::InvalidInput("Proof is required".to_string()));
+            }
+
+            transaction.to_chain.clone()
+        };
 
         // Simulate releasing funds on destination chain
-        match transaction.to_chain {
-            ChainType::Ethereum => self.release_ethereum_funds(transaction)?,
-            ChainType::Bitcoin => self.release_bitcoin_funds(transaction)?,
-            ChainType::Gillean => self.release_gillean_funds(transaction)?,
+        match to_chain {
+            ChainType::Ethereum => self.release_ethereum_funds_simple()?,
+            ChainType::Bitcoin => self.release_bitcoin_funds_simple()?,
+            ChainType::Gillean => self.release_gillean_funds_simple()?,
             _ => return Err(BlockchainError::InvalidInput("Unsupported destination chain".to_string())),
         }
 
+        let transaction = self.transactions.get_mut(tx_id).unwrap();
         transaction.status = CrossChainStatus::Completed;
         Ok(())
     }
@@ -335,6 +345,49 @@ impl CrossChainManager {
         println!("🔓 Releasing {} GIL on Gillean for transaction {}", transaction.amount, transaction.id);
         Ok(())
     }
+
+    // Simple versions for borrow checker compatibility
+    fn lock_ethereum_funds_simple(&self) -> Result<()> {
+        if self.ethereum_client.is_none() {
+            return Err(BlockchainError::InvalidInput("Ethereum client not configured".to_string()));
+        }
+        println!("🔒 Locking funds on Ethereum");
+        Ok(())
+    }
+
+    fn lock_bitcoin_funds_simple(&self) -> Result<()> {
+        if self.bitcoin_client.is_none() {
+            return Err(BlockchainError::InvalidInput("Bitcoin client not configured".to_string()));
+        }
+        println!("🔒 Locking funds on Bitcoin");
+        Ok(())
+    }
+
+    fn lock_gillean_funds_simple(&self) -> Result<()> {
+        println!("🔒 Locking funds on Gillean");
+        Ok(())
+    }
+
+    fn release_ethereum_funds_simple(&self) -> Result<()> {
+        if self.ethereum_client.is_none() {
+            return Err(BlockchainError::InvalidInput("Ethereum client not configured".to_string()));
+        }
+        println!("🔓 Releasing funds on Ethereum");
+        Ok(())
+    }
+
+    fn release_bitcoin_funds_simple(&self) -> Result<()> {
+        if self.bitcoin_client.is_none() {
+            return Err(BlockchainError::InvalidInput("Bitcoin client not configured".to_string()));
+        }
+        println!("🔓 Releasing funds on Bitcoin");
+        Ok(())
+    }
+
+    fn release_gillean_funds_simple(&self) -> Result<()> {
+        println!("🔓 Releasing funds on Gillean");
+        Ok(())
+    }
 }
 
 fn chain_type_to_string(chain_type: &ChainType) -> String {
@@ -345,6 +398,10 @@ fn chain_type_to_string(chain_type: &ChainType) -> String {
         ChainType::Polkadot => "polkadot".to_string(),
         ChainType::Cosmos => "cosmos".to_string(),
     }
+}
+
+fn from_chain_to_string(chain_type: &ChainType) -> String {
+    chain_type_to_string(chain_type)
 }
 
 impl CrossChainTransaction {
@@ -527,7 +584,7 @@ impl CrossChainSuite {
 
         // Make some transfers
         for i in 0..3 {
-            let tx_id = manager.initiate_cross_chain_transfer(
+            let _tx_id = manager.initiate_cross_chain_transfer(
                 &bridge_id,
                 format!("0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b{}", i),
                 format!("gillean_address_{}", i),

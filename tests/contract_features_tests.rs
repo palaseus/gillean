@@ -1,5 +1,5 @@
 use gillean::blockchain::Blockchain;
-use gillean::transaction::Transaction;
+
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -213,7 +213,7 @@ impl ContractManager {
         let contract = self.contracts.get_mut(contract_id)
             .ok_or("Contract not found")?;
 
-        let library = self.libraries.get(library_id)
+        let _library = self.libraries.get(library_id)
             .ok_or("Library not found")?;
 
         if !contract.dependencies.contains(&library_id.to_string()) {
@@ -347,7 +347,7 @@ impl ContractManager {
         contract_id: &str,
         optimizations: Vec<GasOptimization>,
     ) -> Result<String, String> {
-        let contract = self.contracts.get(contract_id)
+        let _contract = self.contracts.get(contract_id)
             .ok_or("Contract not found")?;
 
         let optimizer_id = format!("optimizer_{}", contract_id);
@@ -386,7 +386,7 @@ impl ContractManager {
         &mut self,
         contract_id: &str,
         function_name: &str,
-        parameters: Vec<String>,
+        _parameters: Vec<String>,
         gas_limit: u64,
     ) -> Result<(String, u64), String> {
         let contract = self.contracts.get_mut(contract_id)
@@ -547,7 +547,7 @@ impl ContractFeaturesSuite {
         Ok(())
     }
 
-    pub async fn test_contract_upgrades() -> Result<(), String> {
+    pub async fn test_contract_upgrades() -> Result<(), BlockchainError> {
         println!("🧪 Testing contract upgrades...");
         
         let blockchain = Blockchain::new_pos(10.0, 100.0, 21)?;

@@ -455,7 +455,7 @@ impl DIDSuite {
         let did = manager.create_did("alice".to_string())?;
 
         // Add service endpoint
-        let service_id = manager.add_service_endpoint(
+        let _service_id = manager.add_service_endpoint(
             &did,
             "LinkedDomains".to_string(),
             "https://alice.example.com".to_string(),

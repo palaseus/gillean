@@ -1,0 +1,105 @@
+[package]
+name = "gillean"
+version = "2.0.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "A privacy-focused, enterprise-grade blockchain platform with zero-knowledge proofs, layer 2 scaling, and advanced analytics"
+license = "MIT"
+repository = "https://github.com/yourusername/gillean"
+keywords = ["blockchain", "cryptocurrency", "rust", "sharding", "wasm", "cross-chain", "zkp", "privacy", "enterprise"]
+categories = ["algorithms", "cryptography"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+chrono = { version = "0.4", features = ["serde"] }
+rand = "0.8"
+log = "0.4"
+env_logger = "0.10"
+clap = { version = "4.0", features = ["derive"] }
+hex = "0.4"
+tokio = { version = "1.0", features = ["full"] }
+ed25519-dalek = "2.0"
+metrics = "0.21"
+metrics-exporter-prometheus = "0.12"
+sled = "0.34"
+axum = { version = "0.7", features = ["macros", "ws"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+aes-gcm = "0.10"
+base64 = "0.21"
+uuid = { version = "1.0", features = ["v4"] }
+thiserror = "1.0"
+# Smart contract dependencies
+wasmi = "0.11"
+wasmtime = { version = "12.0", features = ["async"] }
+wasmtime-wasi = "12.0"
+# PoS consensus dependencies
+parking_lot = "0.12"
+# WebSocket support
+tokio-tungstenite = "0.20"
+futures-util = "0.3"
+# Cross-chain and sharding
+crossbeam-channel = "0.5"
+dashmap = "5.4"
+# Contract development toolkit
+walkdir = "2.3"
+toml = "0.8"
+regex = "1.0"
+tempfile = "3.8"
+# Enhanced monitoring
+prometheus = "0.13"
+# Zero-knowledge proofs
+risc0-zkp = "0.20"
+risc0-zkvm = "0.20"
+# State channels and layer 2
+async-trait = "0.1"
+# Advanced analytics and visualization
+plotters = "0.3"
+# SDK dependencies
+reqwest = { version = "0.11", features = ["json"] }
+# Property-based testing
+proptest = "1.3"
+# Ethereum integration
+ethers = { version = "2.0", features = ["legacy"] }
+ethers-core = "2.0"
+ethers-providers = "2.0"
+ethers-signers = "2.0"
+ethers-middleware = "2.0"
+byte-slice-cast = "1.2"
+# TypeScript SDK support
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = ["console"] }
+        # DID system (using simpler approach for now)
+        # did-method-key = "0.1"
+        # did-core = "0.1"
+# Governance framework
+bincode = "1.3"
+        # Simulation mode (using custom implementation)
+        # simulation = "0.1"
+# Additional utilities
+url = "2.4"
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+[dev-dependencies]
+proptest = "1.3"
+tokio-test = "0.4"
+tempfile = "3.8"
+wasm-bindgen-test = "0.3"
+
+[[bin]]
+name = "gillean"
+path = "src/main.rs"
+
+[workspace]
+members = ["frontend", "sdk"]
+
+[lib]
+name = "gillean"
+path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]

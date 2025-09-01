@@ -1,0 +1,6 @@
+# Simple Counter Contract
+PUSH 0
+STORE counter
+PUSH 1
+STORE increment_value
+RETURN

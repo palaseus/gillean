@@ -1,0 +1,67 @@
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Database and data files
+data/
+blockchain_db/
+api_db/
+test_wallet_db/
+*.db
+*.db-*
+shard_*/
+contract_toolkit_*/
+*_db/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Frontend build artifacts
+frontend/dist/
+frontend/target/
+frontend/pkg/
+frontend/wasm-pack.log
+frontend/trunk.log
+
+# TypeScript SDK build artifacts
+sdk/typescript/node_modules/
+sdk/typescript/dist/
+sdk/typescript/build/
+sdk/typescript/.nyc_output/
+sdk/typescript/coverage/
+
+# Contract artifacts
+contracts/*.wasm
+contracts/*.wat
+
+# Test artifacts
+coverage/
+*.profraw
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Backup files
+*.bak
+*.backup

@@ -1,0 +1,26 @@
+[package]
+name = "gillean-contracts"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "WASM smart contracts for the Gillean blockchain platform"
+license = "MIT"
+repository = "https://github.com/yourusername/gillean"
+keywords = ["blockchain", "smart-contracts", "wasm", "rust"]
+categories = ["algorithms", "cryptography"]
+
+[workspace]
+members = [
+    "examples/counter",
+    "examples/voting",
+    "examples/escrow",
+    "examples/token",
+]
+
+[workspace.dependencies]
+gillean-contract = "0.1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"

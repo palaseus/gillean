@@ -75,6 +75,9 @@ pub mod ethereum;
 pub mod did;
 pub mod governance;
 pub mod simulation;
+pub mod performance;
+pub mod security;
+pub mod developer_tools;
 
 // Re-export main types for easy access
 pub use blockchain::Blockchain;
@@ -100,6 +103,9 @@ pub use ethereum::{EthereumBridge, EthereumConfig, PendingTransfer, TransferStat
 pub use did::{DecentralizedIdentity, DIDDocument, VerificationMethod, ServiceEndpoint, DIDCreationRequest, DIDVerificationResult, DIDStats};
 pub use governance::{Governance, GovernanceProposal, ProposalType, ProposalStatus, Vote, VoteChoice, ProposalCreationRequest, VoteRequest, GovernanceStats};
 pub use simulation::{SimulationManager, SimulationConfig, SimulationResult, SimulationMetrics, SimulationEvent, SimulationEventType, NetworkConditions, ShardConfig, FailureScenario, NodePerformance, SimulationState};
+pub use performance::{PerformanceManager, CacheManager, ParallelProcessor, MemoryOptimizer, MetricsCollector, PerformanceConfig, CacheConfig, ParallelConfig, MemoryUsage, MetricsConfig, PerformanceStats, OptimizationResult};
+pub use security::{SecurityManager, CryptoManager, AuditSystem, FormalVerifier, ThreatDetector, SecurityConfig, CryptoConfig, AuditConfig, FormalVerificationConfig, ThreatDetectionConfig, SecurityStatus, SecurityAuditResult};
+pub use developer_tools::{DeveloperToolsManager, Debugger, SDKGenerator, MonitoringDashboard, CodeAnalyzer, DeveloperToolsConfig, DebuggerConfig, SDKGeneratorConfig, MonitoringConfig, CodeAnalysisConfig, DeveloperToolsStatus, DeveloperReport};
 
 /// Current version of the blockchain protocol
 pub const BLOCKCHAIN_VERSION: &str = "2.0.0";

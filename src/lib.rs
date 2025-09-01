@@ -78,6 +78,8 @@ pub mod simulation;
 pub mod performance;
 pub mod security;
 pub mod developer_tools;
+pub mod deployment;
+pub mod monitoring;
 
 // Re-export main types for easy access
 pub use blockchain::Blockchain;
@@ -106,6 +108,8 @@ pub use simulation::{SimulationManager, SimulationConfig, SimulationResult, Simu
 pub use performance::{PerformanceManager, CacheManager, ParallelProcessor, MemoryOptimizer, MetricsCollector, PerformanceConfig, CacheConfig, ParallelConfig, MemoryUsage, MetricsConfig, PerformanceStats, OptimizationResult};
 pub use security::{SecurityManager, CryptoManager, AuditSystem, FormalVerifier, ThreatDetector, SecurityConfig, CryptoConfig, AuditConfig, FormalVerificationConfig, ThreatDetectionConfig, SecurityStatus, SecurityAuditResult};
 pub use developer_tools::{DeveloperToolsManager, Debugger, SDKGenerator, MonitoringDashboard, CodeAnalyzer, DeveloperToolsConfig, DebuggerConfig, SDKGeneratorConfig, MonitoringConfig, CodeAnalysisConfig, DeveloperToolsStatus, DeveloperReport};
+pub use deployment::{DeploymentManager, DeploymentConfig, DeploymentEnvironment, NetworkConfig, DatabaseConfig, SecurityConfig as DeploymentSecurityConfig, MonitoringConfig as DeploymentMonitoringConfig, ConsensusConfig, FeatureFlags, DeploymentStatus, SyncStatus, DeploymentUtils, DeploymentScript};
+pub use monitoring::{MetricsCollector as MonitoringMetricsCollector, CounterMetric, GaugeMetric, HistogramMetric, HistogramBucket, AlertConfig, AlertCondition, AlertSeverity, AlertState, HealthCheck, HealthStatus as MonitoringHealthStatus, SystemMetrics, NetworkIO, BlockchainMetrics as MonitoringBlockchainMetrics, DashboardData, MonitoringEvent, MetricsSnapshot, AlertManager, HealthCheckManager, ProductionMonitor};
 
 /// Current version of the blockchain protocol
 pub const BLOCKCHAIN_VERSION: &str = "2.0.0";

@@ -203,7 +203,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Blockchain community for the innovative consensus and scaling solutions
 - Open source contributors who have made this project possible
 
----
 
-**Gillean Blockchain v2.0.0** - Building the future of decentralized applications with privacy, scalability, and interoperability at its core.
 

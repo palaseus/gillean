@@ -280,15 +280,15 @@ async fn test_production_monitor() {
     assert_eq!(dashboard_data.recent_events[0].event_type, "test");
     assert_eq!(dashboard_data.recent_events[0].severity, AlertSeverity::Info);
     
-    // Verify system metrics
-    assert!(dashboard_data.system_metrics.cpu_usage >= 0.0);
-    assert!(dashboard_data.system_metrics.memory_usage >= 0.0);
-    assert!(dashboard_data.system_metrics.disk_usage >= 0.0);
+    // Verify system metrics are within expected ranges
+    assert!(dashboard_data.system_metrics.cpu_usage >= 0.0 && dashboard_data.system_metrics.cpu_usage <= 100.0);
+    assert!(dashboard_data.system_metrics.memory_usage >= 0.0 && dashboard_data.system_metrics.memory_usage <= 100.0);
+    assert!(dashboard_data.system_metrics.disk_usage >= 0.0 && dashboard_data.system_metrics.disk_usage <= 100.0);
     
-    // Verify blockchain metrics
-    assert!(dashboard_data.blockchain_metrics.block_height >= 0);
-    assert!(dashboard_data.blockchain_metrics.transaction_count >= 0);
-    assert!(dashboard_data.blockchain_metrics.peer_count >= 0);
+    // Verify blockchain metrics are reasonable
+    assert!(dashboard_data.blockchain_metrics.block_height > 0);
+    assert!(dashboard_data.blockchain_metrics.transaction_count > 0);
+    assert!(dashboard_data.blockchain_metrics.peer_count > 0);
 }
 
 #[tokio::test]

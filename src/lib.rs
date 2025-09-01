@@ -80,6 +80,9 @@ pub mod security;
 pub mod developer_tools;
 pub mod deployment;
 pub mod monitoring;
+pub mod block_explorer;
+pub mod wallet_app;
+pub mod dev_utils;
 
 // Re-export main types for easy access
 pub use blockchain::Blockchain;
@@ -110,6 +113,9 @@ pub use security::{SecurityManager, CryptoManager, AuditSystem, FormalVerifier, 
 pub use developer_tools::{DeveloperToolsManager, Debugger, SDKGenerator, MonitoringDashboard, CodeAnalyzer, DeveloperToolsConfig, DebuggerConfig, SDKGeneratorConfig, MonitoringConfig, CodeAnalysisConfig, DeveloperToolsStatus, DeveloperReport};
 pub use deployment::{DeploymentManager, DeploymentConfig, DeploymentEnvironment, NetworkConfig, DatabaseConfig, SecurityConfig as DeploymentSecurityConfig, MonitoringConfig as DeploymentMonitoringConfig, ConsensusConfig, FeatureFlags, DeploymentStatus, SyncStatus, DeploymentUtils, DeploymentScript};
 pub use monitoring::{MetricsCollector as MonitoringMetricsCollector, CounterMetric, GaugeMetric, HistogramMetric, HistogramBucket, AlertConfig, AlertCondition, AlertSeverity, AlertState, HealthCheck, HealthStatus as MonitoringHealthStatus, SystemMetrics, NetworkIO, BlockchainMetrics as MonitoringBlockchainMetrics, DashboardData, MonitoringEvent, MetricsSnapshot, AlertManager, HealthCheckManager, ProductionMonitor};
+pub use block_explorer::{BlockExplorer, SearchResult, SearchResultType, ExplorerStatistics, BlockDetails, TransactionDetails, TransactionStatus, AddressInfo, NetworkOverview, BlockSummary, TransactionSummary, AddressSummary, NetworkHealth, HealthStatus as ExplorerHealthStatus, SearchFilters, PaginationParams, SortOrder};
+pub use wallet_app::{WalletApp, SessionManager, WalletSession, WalletPermission, TransactionRecord, TransactionStatus as WalletTransactionStatus, TransactionDirection, WalletAccount, WalletDashboard, NetworkStatus, MarketData, WalletNotification, NotificationType, TransactionRequest, TransactionResponse, WalletSettings, WalletBackup, BackupType};
+pub use dev_utils::{DevUtils, TestEnvironment, TestAccount, TestContract, MockData, DebugTools, Breakpoint, BreakpointLocation, WatchVariable, CallStackFrame, MemorySnapshot, PerformanceProfiler, ContractTester, TestSuite, TestCase, TestResult, TestStatus, CoverageData, FuzzingConfig, DevConfig, DevReport, EnvironmentInfo, PerformanceMetrics, CoverageReport, DebugInfo};
 
 /// Current version of the blockchain protocol
 pub const BLOCKCHAIN_VERSION: &str = "2.0.0";

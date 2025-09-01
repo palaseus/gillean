@@ -622,10 +622,10 @@ mod tests {
     
     #[tokio::test]
     async fn test_wallet_app_creation() {
-        let blockchain = Arc::new(RwLock::new(Blockchain::new()));
+        let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
         let wallet_manager = Arc::new(WalletManager::new());
         let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
-        let wallet_app = WalletApp::new(blockchain, wallet_manager, block_explorer);
+        let _wallet_app = WalletApp::new(blockchain, wallet_manager, block_explorer);
         
         // Test that wallet app was created successfully
         assert!(true); // Basic creation test
@@ -633,7 +633,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_create_wallet() {
-        let blockchain = Arc::new(RwLock::new(Blockchain::new()));
+        let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
         let wallet_manager = Arc::new(WalletManager::new());
         let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
         let wallet_app = WalletApp::new(blockchain, wallet_manager, block_explorer);
@@ -646,7 +646,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_session_management() {
-        let blockchain = Arc::new(RwLock::new(Blockchain::new()));
+        let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
         let wallet_manager = Arc::new(WalletManager::new());
         let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
         let wallet_app = WalletApp::new(blockchain, wallet_manager, block_explorer);
@@ -667,7 +667,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_account_info() {
-        let blockchain = Arc::new(RwLock::new(Blockchain::new()));
+        let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
         let wallet_manager = Arc::new(WalletManager::new());
         let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
         let wallet_app = WalletApp::new(blockchain, wallet_manager, block_explorer);
@@ -680,7 +680,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_network_status() {
-        let blockchain = Arc::new(RwLock::new(Blockchain::new()));
+        let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
         let wallet_manager = Arc::new(WalletManager::new());
         let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
         let wallet_app = WalletApp::new(blockchain, wallet_manager, block_explorer);

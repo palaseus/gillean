@@ -227,9 +227,7 @@ impl SecurityTestSuite {
         // Test security status
         let status = self.manager.get_security_status().await;
         assert!(status.crypto_keys > 0);
-        assert!(status.audit_logs >= 0);
-        assert!(status.verification_results >= 0);
-        assert!(status.detected_threats >= 0);
+        // audit_logs, verification_results, and detected_threats are usize (always >= 0)
 
         println!("      ✅ Security Manager tests passed");
         Ok(())
@@ -436,8 +434,6 @@ mod tests {
         assert!(audit_result.duration > Duration::from_nanos(0));
 
         // Test that all components are working together
-        assert!(status.audit_logs >= 0);
-        assert!(status.verification_results >= 0);
-        assert!(status.detected_threats >= 0);
+        // audit_logs, verification_results, and detected_threats are usize (always >= 0)
     }
 }

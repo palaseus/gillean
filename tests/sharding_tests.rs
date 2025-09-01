@@ -282,6 +282,7 @@ impl ShardingManager {
 }
 
 pub struct ShardingSuite {
+    #[allow(dead_code)]
     manager: ShardingManager,
 }
 

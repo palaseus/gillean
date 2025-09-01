@@ -23,7 +23,7 @@ async fn test_block_explorer_creation() {
 async fn test_block_explorer_network_overview() {
     let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
     let wallet_manager = Arc::new(WalletManager::new());
-    let _block_explorer = BlockExplorer::new(blockchain, wallet_manager);
+    let block_explorer = BlockExplorer::new(blockchain, wallet_manager);
     
     let overview = block_explorer.get_network_overview().await.unwrap();
     assert_eq!(overview.statistics.total_blocks, 1); // Genesis block
@@ -36,7 +36,7 @@ async fn test_block_explorer_network_overview() {
 async fn test_block_explorer_block_details() {
     let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
     let wallet_manager = Arc::new(WalletManager::new());
-    let _block_explorer = BlockExplorer::new(blockchain, wallet_manager);
+    let block_explorer = BlockExplorer::new(blockchain, wallet_manager);
     
     let block_details = block_explorer.get_block_details("0").await.unwrap();
     assert_eq!(block_details.block.index, 0);
@@ -50,7 +50,7 @@ async fn test_block_explorer_block_details() {
 async fn test_block_explorer_search() {
     let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
     let wallet_manager = Arc::new(WalletManager::new());
-    let _block_explorer = BlockExplorer::new(blockchain, wallet_manager);
+    let block_explorer = BlockExplorer::new(blockchain, wallet_manager);
     
     // Search for genesis block
     let result = block_explorer.search("0").await.unwrap();
@@ -65,7 +65,7 @@ async fn test_block_explorer_search() {
 async fn test_block_explorer_statistics() {
     let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
     let wallet_manager = Arc::new(WalletManager::new());
-    let _block_explorer = BlockExplorer::new(blockchain, wallet_manager);
+    let block_explorer = BlockExplorer::new(blockchain, wallet_manager);
     
     let stats = block_explorer.get_statistics().await.unwrap();
     assert_eq!(stats.total_blocks, 1); // Genesis block
@@ -80,7 +80,7 @@ async fn test_block_explorer_statistics() {
 async fn test_block_explorer_network_health() {
     let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
     let wallet_manager = Arc::new(WalletManager::new());
-    let _block_explorer = BlockExplorer::new(blockchain, wallet_manager);
+    let block_explorer = BlockExplorer::new(blockchain, wallet_manager);
     
     let health = block_explorer.get_network_health().await.unwrap();
     assert!(matches!(health.status, ExplorerHealthStatus::Healthy | ExplorerHealthStatus::Degraded | ExplorerHealthStatus::Unhealthy));
@@ -95,7 +95,7 @@ async fn test_wallet_app_creation() {
     let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
     let wallet_manager = Arc::new(WalletManager::new());
     let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
-    let _wallet_app = WalletApp::new(blockchain, wallet_manager, _block_explorer);
+    let _wallet_app = WalletApp::new(blockchain, wallet_manager, block_explorer);
     
     // Test that wallet app was created successfully
     assert!(true); // Basic creation test
@@ -106,7 +106,7 @@ async fn test_wallet_app_create_wallet() {
     let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
     let wallet_manager = Arc::new(WalletManager::new());
     let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
-    let _wallet_app = WalletApp::new(blockchain, wallet_manager, _block_explorer);
+    let wallet_app = WalletApp::new(blockchain, wallet_manager, block_explorer);
     
     let account = wallet_app.create_wallet("password123").await.unwrap();
     assert!(!account.address.is_empty());
@@ -122,7 +122,7 @@ async fn test_wallet_app_session_management() {
     let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
     let wallet_manager = Arc::new(WalletManager::new());
     let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
-    let _wallet_app = WalletApp::new(blockchain, wallet_manager, _block_explorer);
+    let wallet_app = WalletApp::new(blockchain, wallet_manager, block_explorer);
     
     let permissions = vec![
         WalletPermission::Send,
@@ -144,7 +144,7 @@ async fn test_wallet_app_account_info() {
     let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
     let wallet_manager = Arc::new(WalletManager::new());
     let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
-    let _wallet_app = WalletApp::new(blockchain, wallet_manager, _block_explorer);
+    let wallet_app = WalletApp::new(blockchain, wallet_manager, block_explorer);
     
     let account = wallet_app.get_account_info("test_address").await.unwrap();
     assert_eq!(account.address, "test_address");
@@ -160,7 +160,7 @@ async fn test_wallet_app_network_status() {
     let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
     let wallet_manager = Arc::new(WalletManager::new());
     let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
-    let _wallet_app = WalletApp::new(blockchain, wallet_manager, _block_explorer);
+    let wallet_app = WalletApp::new(blockchain, wallet_manager, block_explorer);
     
     let network_status = wallet_app.get_network_status().await.unwrap();
     assert!(network_status.is_connected);
@@ -176,7 +176,7 @@ async fn test_wallet_app_market_data() {
     let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
     let wallet_manager = Arc::new(WalletManager::new());
     let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
-    let _wallet_app = WalletApp::new(blockchain, wallet_manager, _block_explorer);
+    let wallet_app = WalletApp::new(blockchain, wallet_manager, block_explorer);
     
     let market_data = wallet_app.get_market_data().await.unwrap();
     assert!(market_data.token_price_usd > 0.0);
@@ -192,7 +192,7 @@ async fn test_wallet_app_notifications() {
     let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
     let wallet_manager = Arc::new(WalletManager::new());
     let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
-    let _wallet_app = WalletApp::new(blockchain, wallet_manager, _block_explorer);
+    let wallet_app = WalletApp::new(blockchain, wallet_manager, block_explorer);
     
     let notifications = wallet_app.get_notifications("test_address").await.unwrap();
     assert!(!notifications.is_empty());
@@ -210,7 +210,7 @@ async fn test_dev_utils_creation() {
     let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
     let wallet_manager = Arc::new(WalletManager::new());
     let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
-    let _dev_utils = DevUtils::new(blockchain, wallet_manager, _block_explorer);
+    let _dev_utils = DevUtils::new(blockchain, wallet_manager, block_explorer);
     
     // Test that dev utils was created successfully
     assert!(true); // Basic creation test
@@ -221,7 +221,7 @@ async fn test_dev_utils_create_test_account() {
     let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
     let wallet_manager = Arc::new(WalletManager::new());
     let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
-    let _dev_utils = DevUtils::new(blockchain, wallet_manager, _block_explorer);
+    let dev_utils = DevUtils::new(blockchain, wallet_manager, block_explorer);
     
     let account = dev_utils.create_test_account(1000.0, false).await.unwrap();
     assert!(!account.address.is_empty());
@@ -238,7 +238,7 @@ async fn test_dev_utils_deploy_test_contract() {
     let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
     let wallet_manager = Arc::new(WalletManager::new());
     let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
-    let _dev_utils = DevUtils::new(blockchain, wallet_manager, _block_explorer);
+    let dev_utils = DevUtils::new(blockchain, wallet_manager, block_explorer);
     
     let contract = dev_utils.deploy_test_contract(
         "TestContract",
@@ -262,7 +262,7 @@ async fn test_dev_utils_breakpoint_management() {
     let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
     let wallet_manager = Arc::new(WalletManager::new());
     let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
-    let _dev_utils = DevUtils::new(blockchain, wallet_manager, _block_explorer);
+    let dev_utils = DevUtils::new(blockchain, wallet_manager, block_explorer);
     
     let location = BreakpointLocation::Contract {
         address: "contract_address".to_string(),
@@ -289,7 +289,7 @@ async fn test_dev_utils_watch_variables() {
     let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
     let wallet_manager = Arc::new(WalletManager::new());
     let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
-    let _dev_utils = DevUtils::new(blockchain, wallet_manager, _block_explorer);
+    let dev_utils = DevUtils::new(blockchain, wallet_manager, block_explorer);
     
     let value = serde_json::Value::Number(serde_json::Number::from(42));
     dev_utils.add_watch_variable("test_var", value, "u32").await.unwrap();
@@ -307,7 +307,7 @@ async fn test_dev_utils_profiling() {
     let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
     let wallet_manager = Arc::new(WalletManager::new());
     let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
-    let _dev_utils = DevUtils::new(blockchain, wallet_manager, _block_explorer);
+    let dev_utils = DevUtils::new(blockchain, wallet_manager, block_explorer);
     
     dev_utils.start_profiling().await.unwrap();
     let profiler = dev_utils.stop_profiling().await.unwrap();
@@ -324,7 +324,7 @@ async fn test_dev_utils_test_suite_management() {
     let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
     let wallet_manager = Arc::new(WalletManager::new());
     let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
-    let _dev_utils = DevUtils::new(blockchain, wallet_manager, _block_explorer);
+    let dev_utils = DevUtils::new(blockchain, wallet_manager, block_explorer);
     
     let test_case = TestCase {
         name: "test_function".to_string(),
@@ -361,7 +361,7 @@ async fn test_dev_utils_dev_report_generation() {
     let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
     let wallet_manager = Arc::new(WalletManager::new());
     let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
-    let _dev_utils = DevUtils::new(blockchain, wallet_manager, _block_explorer);
+    let dev_utils = DevUtils::new(blockchain, wallet_manager, block_explorer);
     
     let report = dev_utils.generate_dev_report().await.unwrap();
     assert_eq!(report.environment_info.blockchain_version, "2.0.0");

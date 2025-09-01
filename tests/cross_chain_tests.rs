@@ -294,6 +294,7 @@ impl CrossChainManager {
         Ok((bridge.total_volume, transaction_count))
     }
 
+    #[allow(dead_code)]
     fn lock_ethereum_funds(&self, transaction: &CrossChainTransaction) -> Result<()> {
         if self.ethereum_client.is_none() {
             return Err(BlockchainError::InvalidInput("Ethereum client not configured".to_string()));
@@ -304,6 +305,7 @@ impl CrossChainManager {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn lock_bitcoin_funds(&self, transaction: &CrossChainTransaction) -> Result<()> {
         if self.bitcoin_client.is_none() {
             return Err(BlockchainError::InvalidInput("Bitcoin client not configured".to_string()));
@@ -314,12 +316,14 @@ impl CrossChainManager {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn lock_gillean_funds(&self, transaction: &CrossChainTransaction) -> Result<()> {
         // Simulate Gillean transaction to lock funds
         println!("🔒 Locking {} GIL on Gillean for transaction {}", transaction.amount, transaction.id);
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn release_ethereum_funds(&self, transaction: &CrossChainTransaction) -> Result<()> {
         if self.ethereum_client.is_none() {
             return Err(BlockchainError::InvalidInput("Ethereum client not configured".to_string()));
@@ -330,6 +334,7 @@ impl CrossChainManager {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn release_bitcoin_funds(&self, transaction: &CrossChainTransaction) -> Result<()> {
         if self.bitcoin_client.is_none() {
             return Err(BlockchainError::InvalidInput("Bitcoin client not configured".to_string()));
@@ -340,6 +345,7 @@ impl CrossChainManager {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn release_gillean_funds(&self, transaction: &CrossChainTransaction) -> Result<()> {
         // Simulate Gillean transaction to release funds
         println!("🔓 Releasing {} GIL on Gillean for transaction {}", transaction.amount, transaction.id);

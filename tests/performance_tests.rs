@@ -5,6 +5,7 @@ use gillean::performance::{
 };
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::time::sleep;
 
 
 pub struct PerformanceTestSuite {
@@ -167,7 +168,7 @@ impl PerformanceTestSuite {
         // Test performance statistics
         sleep(Duration::from_millis(100)).await;
         let stats = self.manager.get_performance_stats().await;
-        assert!(stats.cache_stats.total_requests >= 0);
+        // total_requests is usize (always >= 0)
         assert!(stats.memory_usage.total_memory > 0);
 
         println!("      ✅ Performance Manager tests passed");

@@ -1,4 +1,4 @@
-use gillean::{Blockchain, BlockchainError, Transaction};
+use gillean::{BlockchainError, Transaction};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -305,7 +305,7 @@ impl AIIntegrationSuite {
     fn test_anomaly_detection(&self) -> Result<(), BlockchainError> {
         println!("  Testing anomaly detection...");
         
-        let normal_tx = Transaction::new_transfer(
+        let _normal_tx = Transaction::new_transfer(
             "sender1".to_string(),
             "receiver1".to_string(),
             100.0,
@@ -331,7 +331,7 @@ impl AIIntegrationSuite {
     fn test_fraud_detection(&self) -> Result<(), BlockchainError> {
         println!("  Testing fraud detection...");
         
-        let normal_tx = Transaction::new_transfer(
+        let _normal_tx = Transaction::new_transfer(
             "sender1".to_string(),
             "receiver1".to_string(),
             100.0,

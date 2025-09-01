@@ -357,7 +357,7 @@ pub struct GovernanceSuite {
 
 impl GovernanceSuite {
     pub fn new() -> Result<Self, String> {
-        let blockchain = Blockchain::new_pos(10.0, 100.0, 21)?;
+        let blockchain = Blockchain::new_pos(10.0, 100.0, 21).map_err(|e| format!("Failed to create blockchain: {:?}", e))?;
         let manager = GovernanceManager::new(blockchain);
         
         Ok(Self {
@@ -368,7 +368,7 @@ impl GovernanceSuite {
     pub async fn test_proposal_creation() -> Result<(), BlockchainError> {
         println!("🧪 Testing proposal creation...");
         
-        let blockchain = Blockchain::new_pos(10.0, 100.0, 21)?;
+        let blockchain = Blockchain::new_pos(10.0, 100.0, 21).map_err(|e| BlockchainError::InvalidInput(format!("Failed to create blockchain: {:?}", e)))?;
         let mut manager = GovernanceManager::new(blockchain);
 
         // Test successful proposal creation
@@ -404,7 +404,7 @@ impl GovernanceSuite {
     pub async fn test_voting_mechanism() -> Result<(), BlockchainError> {
         println!("🧪 Testing voting mechanism...");
         
-        let blockchain = Blockchain::new_pos(10.0, 100.0, 21)?;
+        let blockchain = Blockchain::new_pos(10.0, 100.0, 21).map_err(|e| BlockchainError::InvalidInput(format!("Failed to create blockchain: {:?}", e)))?;
         let mut manager = GovernanceManager::new(blockchain);
 
         // Mint tokens for voting
@@ -449,7 +449,7 @@ impl GovernanceSuite {
     pub async fn test_proposal_finalization() -> Result<(), BlockchainError> {
         println!("🧪 Testing proposal finalization...");
         
-        let blockchain = Blockchain::new_pos(10.0, 100.0, 21)?;
+        let blockchain = Blockchain::new_pos(10.0, 100.0, 21).map_err(|e| BlockchainError::InvalidInput(format!("Failed to create blockchain: {:?}", e)))?;
         let mut manager = GovernanceManager::new(blockchain);
 
         // Mint tokens for voting
@@ -489,7 +489,7 @@ impl GovernanceSuite {
     pub async fn test_timelock_execution() -> Result<(), BlockchainError> {
         println!("🧪 Testing timelock execution...");
         
-        let blockchain = Blockchain::new_pos(10.0, 100.0, 21)?;
+        let blockchain = Blockchain::new_pos(10.0, 100.0, 21).map_err(|e| BlockchainError::InvalidInput(format!("Failed to create blockchain: {:?}", e)))?;
         let mut manager = GovernanceManager::new(blockchain);
 
         // Mint tokens and create proposal
@@ -539,7 +539,7 @@ impl GovernanceSuite {
     pub async fn test_governance_token_management() -> Result<(), BlockchainError> {
         println!("🧪 Testing governance token management...");
         
-        let blockchain = Blockchain::new_pos(10.0, 100.0, 21)?;
+        let blockchain = Blockchain::new_pos(10.0, 100.0, 21).map_err(|e| BlockchainError::InvalidInput(format!("Failed to create blockchain: {:?}", e)))?;
         let mut manager = GovernanceManager::new(blockchain);
 
         // Test token minting
@@ -566,7 +566,7 @@ impl GovernanceSuite {
     pub async fn test_invalid_operations() -> Result<(), BlockchainError> {
         println!("🧪 Testing invalid operations...");
         
-        let blockchain = Blockchain::new_pos(10.0, 100.0, 21)?;
+        let blockchain = Blockchain::new_pos(10.0, 100.0, 21).map_err(|e| BlockchainError::InvalidInput(format!("Failed to create blockchain: {:?}", e)))?;
         let mut manager = GovernanceManager::new(blockchain);
 
         // Test voting on non-existent proposal
@@ -592,7 +592,7 @@ impl GovernanceSuite {
     pub async fn test_governance_lifecycle() -> Result<(), BlockchainError> {
         println!("🧪 Testing complete governance lifecycle...");
         
-        let blockchain = Blockchain::new_pos(10.0, 100.0, 21)?;
+        let blockchain = Blockchain::new_pos(10.0, 100.0, 21).map_err(|e| BlockchainError::InvalidInput(format!("Failed to create blockchain: {:?}", e)))?;
         let mut manager = GovernanceManager::new(blockchain);
 
         // Setup: Mint tokens to multiple stakeholders

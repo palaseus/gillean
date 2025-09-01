@@ -544,7 +544,7 @@ mod tests {
         manager.start().await;
 
         sleep(Duration::from_millis(100)).await;
-        let stats = manager.get_performance_stats().await;
+        let _stats = manager.get_performance_stats().await;
         // Cache stats validation - total_requests is always >= 0 by definition
 
         let result = manager.optimize_performance().await;

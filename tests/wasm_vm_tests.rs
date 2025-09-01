@@ -280,6 +280,7 @@ impl WASMVM {
 }
 
 pub struct WASMVMSuite {
+    #[allow(dead_code)]
     vm: WASMVM,
 }
 

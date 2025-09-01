@@ -631,10 +631,10 @@ mod tests {
     
     #[tokio::test]
     async fn test_dev_utils_creation() {
-        let blockchain = Arc::new(RwLock::new(Blockchain::new()));
+        let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
         let wallet_manager = Arc::new(WalletManager::new());
         let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
-        let dev_utils = DevUtils::new(blockchain, wallet_manager, block_explorer);
+        let _dev_utils = DevUtils::new(blockchain, wallet_manager, block_explorer);
         
         // Test that dev utils was created successfully
         assert!(true); // Basic creation test
@@ -642,7 +642,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_create_test_account() {
-        let blockchain = Arc::new(RwLock::new(Blockchain::new()));
+        let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
         let wallet_manager = Arc::new(WalletManager::new());
         let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
         let dev_utils = DevUtils::new(blockchain, wallet_manager, block_explorer);
@@ -655,7 +655,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_deploy_test_contract() {
-        let blockchain = Arc::new(RwLock::new(Blockchain::new()));
+        let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
         let wallet_manager = Arc::new(WalletManager::new());
         let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
         let dev_utils = DevUtils::new(blockchain, wallet_manager, block_explorer);
@@ -675,7 +675,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_breakpoint_management() {
-        let blockchain = Arc::new(RwLock::new(Blockchain::new()));
+        let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
         let wallet_manager = Arc::new(WalletManager::new());
         let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
         let dev_utils = DevUtils::new(blockchain, wallet_manager, block_explorer);
@@ -692,7 +692,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_profiling() {
-        let blockchain = Arc::new(RwLock::new(Blockchain::new()));
+        let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
         let wallet_manager = Arc::new(WalletManager::new());
         let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
         let dev_utils = DevUtils::new(blockchain, wallet_manager, block_explorer);
@@ -704,7 +704,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_dev_report_generation() {
-        let blockchain = Arc::new(RwLock::new(Blockchain::new()));
+        let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
         let wallet_manager = Arc::new(WalletManager::new());
         let block_explorer = Arc::new(BlockExplorer::new(blockchain.clone(), wallet_manager.clone()));
         let dev_utils = DevUtils::new(blockchain, wallet_manager, block_explorer);

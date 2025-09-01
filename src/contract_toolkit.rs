@@ -331,6 +331,7 @@ impl ContractToolkit {
             return Ok(templates);
         }
         
+        // Try to load templates from .toml files
         for entry in WalkDir::new(templates_path)
             .into_iter()
             .filter_map(|e| e.ok())
@@ -339,6 +340,14 @@ impl ContractToolkit {
             if let Ok(template) = Self::load_template_from_file(entry.path()) {
                 templates.insert(template.name.clone(), template);
             }
+        }
+        
+        // If no .toml files found, create default templates
+        if templates.is_empty() {
+            templates.insert("counter".to_string(), Self::create_counter_template());
+            templates.insert("voting".to_string(), Self::create_voting_template());
+            templates.insert("escrow".to_string(), Self::create_escrow_template());
+            templates.insert("token".to_string(), Self::create_token_template());
         }
         
         Ok(templates)

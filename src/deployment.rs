@@ -621,10 +621,13 @@ mod tests {
     
     #[tokio::test]
     async fn test_config_validation() {
-        let mut config = DeploymentManager::default_config();
-        config.security.tls_enabled = true;
+        let mut manager = DeploymentManager::new(PathBuf::from("test.toml"));
+        manager.update_config(|config| {
+            config.security.tls_enabled = true;
+            // TLS paths are None by default, which should cause validation to fail
+        });
         // Missing TLS paths should cause validation to fail
-        assert!(DeploymentManager::new(PathBuf::from("test.toml")).validate_config().is_err());
+        assert!(manager.validate_config().is_err());
     }
     
     #[tokio::test]

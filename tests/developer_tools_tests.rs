@@ -1,7 +1,7 @@
 use gillean::developer_tools::{
     DeveloperToolsManager, Debugger, SDKGenerator, MonitoringDashboard, CodeAnalyzer,
     DeveloperToolsConfig, DebuggerConfig, SDKGeneratorConfig, MonitoringConfig, CodeAnalysisConfig,
-    DebugLevel, SDKLanguage, WidgetType, AnalysisType, SDKTemplate, AlertSeverity, Widget
+    DebugLevel, SDKLanguage, WidgetType, SDKTemplate, AlertSeverity, Widget
 };
 use std::sync::Arc;
 use std::time::Duration;
@@ -57,7 +57,7 @@ impl DeveloperToolsTestSuite {
         let debugger = Debugger::new(debugger_config);
 
         // Test breakpoint management
-        let breakpoint_id = debugger.add_breakpoint("main.rs:10", Some("x > 5")).await;
+        let _breakpoint_id = debugger.add_breakpoint("main.rs:10", Some("x > 5")).await;
         debugger.add_breakpoint("utils.rs:25", None).await;
 
         // Test debug logging
@@ -322,11 +322,8 @@ export class GilleanSDK {
         println!("    Testing Developer Tools Manager...");
 
         // Test developer tools status
-        let status = self.manager.get_developer_tools_status().await;
-        assert!(status.debug_info.breakpoints.len() >= 0);
-        assert!(status.generated_sdks.len() >= 0);
-        assert!(status.monitoring_summary.total_metrics >= 0);
-        assert!(status.analysis_results.len() >= 0);
+        let _status = self.manager.get_developer_tools_status().await;
+        // len() returns usize (always >= 0), total_metrics is usize (always >= 0)
 
         println!("      ✅ Developer Tools Manager tests passed");
         Ok(())
@@ -338,10 +335,7 @@ export class GilleanSDK {
         // Generate developer report
         let report = self.manager.generate_developer_report().await;
         assert!(report.duration > Duration::from_nanos(0));
-        assert!(report.debug_info.breakpoints.len() >= 0);
-        assert!(report.generated_sdks.len() >= 0);
-        assert!(report.monitoring_summary.total_metrics >= 0);
-        assert!(report.code_metrics.len() >= 0);
+        // len() returns usize (always >= 0), total_metrics is usize (always >= 0)
 
         // Test recommendations
         println!("      Report recommendations: {:?}", report.recommendations);
@@ -372,7 +366,7 @@ mod tests {
         let debugger = Debugger::new(config);
 
         // Test comprehensive debugging workflow
-        let breakpoint_id = debugger.add_breakpoint("main.rs:42", Some("x > 10")).await;
+        let _breakpoint_id = debugger.add_breakpoint("main.rs:42", Some("x > 10")).await;
         
         debugger.log_debug(DebugLevel::Debug, "Starting function execution", "main").await;
         debugger.add_call_stack_frame("main", "main.rs", 1).await;
@@ -503,10 +497,10 @@ mod tests {
         ];
 
         for (filename, code) in test_codes {
-            let analysis = analyzer.analyze_code(filename, code).await;
+            let _analysis = analyzer.analyze_code(filename, code).await;
             let metrics = analyzer.calculate_metrics(filename, code).await;
             
-            assert!(analysis.findings.len() >= 0);
+            // findings.len() returns usize (always >= 0)
             assert!(metrics.lines_of_code > 0);
             assert!(metrics.security_score >= 0.0);
             assert!(metrics.maintainability_index >= 0.0);

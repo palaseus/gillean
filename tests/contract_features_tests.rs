@@ -435,7 +435,7 @@ pub struct ContractFeaturesSuite {
 
 impl ContractFeaturesSuite {
     pub fn new() -> Result<Self, String> {
-        let blockchain = Blockchain::new_pos(10.0, 100.0, 21)?;
+        let blockchain = Blockchain::new_pos(10.0, 100.0, 21).map_err(|e| format!("Failed to create blockchain: {:?}", e))?;
         let manager = ContractManager::new(blockchain);
         
         Ok(Self {
@@ -446,7 +446,7 @@ impl ContractFeaturesSuite {
     pub async fn test_contract_deployment() -> Result<(), String> {
         println!("🧪 Testing contract deployment...");
         
-        let blockchain = Blockchain::new_pos(10.0, 100.0, 21)?;
+        let blockchain = Blockchain::new_pos(10.0, 100.0, 21).map_err(|e| format!("Failed to create blockchain: {:?}", e))?;
         let mut manager = ContractManager::new(blockchain);
 
         // Test standard contract deployment
@@ -488,7 +488,7 @@ impl ContractFeaturesSuite {
     pub async fn test_library_management() -> Result<(), String> {
         println!("🧪 Testing library management...");
         
-        let blockchain = Blockchain::new_pos(10.0, 100.0, 21)?;
+        let blockchain = Blockchain::new_pos(10.0, 100.0, 21).map_err(|e| format!("Failed to create blockchain: {:?}", e))?;
         let mut manager = ContractManager::new(blockchain);
 
         // Create library functions
@@ -547,10 +547,10 @@ impl ContractFeaturesSuite {
         Ok(())
     }
 
-    pub async fn test_contract_upgrades() -> Result<(), BlockchainError> {
+    pub async fn test_contract_upgrades() -> Result<(), String> {
         println!("🧪 Testing contract upgrades...");
         
-        let blockchain = Blockchain::new_pos(10.0, 100.0, 21)?;
+        let blockchain = Blockchain::new_pos(10.0, 100.0, 21).map_err(|e| format!("Failed to create blockchain: {:?}", e))?;
         let mut manager = ContractManager::new(blockchain);
 
         // Deploy upgradeable contract
@@ -572,7 +572,7 @@ impl ContractFeaturesSuite {
         migration_data.insert("old_value".to_string(), "100".to_string());
         migration_data.insert("new_value".to_string(), "200".to_string());
 
-        let upgrade_id = manager.upgrade_contract(
+        let _upgrade_id = manager.upgrade_contract(
             &contract_id,
             "2.0.0",
             vec![0x60, 0x60, 0x60, 0x60], // New bytecode
@@ -594,7 +594,7 @@ impl ContractFeaturesSuite {
         assert_eq!(history[0].to_version, "2.0.0");
 
         // Test emergency upgrade
-        let emergency_upgrade_id = manager.upgrade_contract(
+        let _emergency_upgrade_id = manager.upgrade_contract(
             &contract_id,
             "2.1.0",
             vec![0x60, 0x60, 0x60, 0x60, 0x60],
@@ -615,7 +615,7 @@ impl ContractFeaturesSuite {
     pub async fn test_proxy_contracts() -> Result<(), String> {
         println!("🧪 Testing proxy contracts...");
         
-        let blockchain = Blockchain::new_pos(10.0, 100.0, 21)?;
+        let blockchain = Blockchain::new_pos(10.0, 100.0, 21).map_err(|e| format!("Failed to create blockchain: {:?}", e))?;
         let mut manager = ContractManager::new(blockchain);
 
         // Deploy implementation contract
@@ -659,7 +659,7 @@ impl ContractFeaturesSuite {
         assert!(upgrade_result.is_err()); // Should fail due to timelock
 
         // Test emergency upgrade (bypasses timelock)
-        let emergency_upgrade_id = manager.upgrade_proxy_implementation(
+        let _emergency_upgrade_id = manager.upgrade_proxy_implementation(
             &proxy_id,
             &new_implementation_id,
             UpgradeType::Emergency,
@@ -677,7 +677,7 @@ impl ContractFeaturesSuite {
     pub async fn test_gas_optimization() -> Result<(), String> {
         println!("🧪 Testing gas optimization...");
         
-        let blockchain = Blockchain::new_pos(10.0, 100.0, 21)?;
+        let blockchain = Blockchain::new_pos(10.0, 100.0, 21).map_err(|e| format!("Failed to create blockchain: {:?}", e))?;
         let mut manager = ContractManager::new(blockchain);
 
         // Deploy contract
@@ -708,7 +708,7 @@ impl ContractFeaturesSuite {
             },
         ];
 
-        let optimizer_id = manager.optimize_contract_gas(&contract_id, optimizations)?;
+        let _optimizer_id = manager.optimize_contract_gas(&contract_id, optimizations)?;
 
         let optimizer = manager.get_gas_optimization_stats(&contract_id)
             .ok_or("Gas optimizer not found")?;
@@ -735,7 +735,7 @@ impl ContractFeaturesSuite {
     pub async fn test_contract_inheritance() -> Result<(), String> {
         println!("🧪 Testing contract inheritance...");
         
-        let blockchain = Blockchain::new_pos(10.0, 100.0, 21)?;
+        let blockchain = Blockchain::new_pos(10.0, 100.0, 21).map_err(|e| format!("Failed to create blockchain: {:?}", e))?;
         let mut manager = ContractManager::new(blockchain);
 
         // Deploy base contract
@@ -795,7 +795,7 @@ impl ContractFeaturesSuite {
     pub async fn test_invalid_operations() -> Result<(), String> {
         println!("🧪 Testing invalid operations...");
         
-        let blockchain = Blockchain::new_pos(10.0, 100.0, 21)?;
+        let blockchain = Blockchain::new_pos(10.0, 100.0, 21).map_err(|e| format!("Failed to create blockchain: {:?}", e))?;
         let mut manager = ContractManager::new(blockchain);
 
         // Test upgrading non-upgradeable contract
@@ -852,7 +852,7 @@ impl ContractFeaturesSuite {
     pub async fn test_contract_lifecycle() -> Result<(), String> {
         println!("🧪 Testing complete contract lifecycle...");
         
-        let blockchain = Blockchain::new_pos(10.0, 100.0, 21)?;
+        let blockchain = Blockchain::new_pos(10.0, 100.0, 21).map_err(|e| format!("Failed to create blockchain: {:?}", e))?;
         let mut manager = ContractManager::new(blockchain);
 
         // Phase 1: Deploy base library
@@ -888,7 +888,7 @@ impl ContractFeaturesSuite {
         let mut migration_data = HashMap::new();
         migration_data.insert("totalSupply".to_string(), "1000000".to_string());
 
-        let upgrade_id = manager.upgrade_contract(
+        let _upgrade_id = manager.upgrade_contract(
             &contract_id,
             "2.0.0",
             vec![0x60, 0x60, 0x60, 0x60],
@@ -908,7 +908,7 @@ impl ContractFeaturesSuite {
             },
         ];
 
-        let optimizer_id = manager.optimize_contract_gas(&contract_id, optimizations)?;
+        let _optimizer_id = manager.optimize_contract_gas(&contract_id, optimizations)?;
 
         // Phase 7: Test function execution
         let (result, gas_used) = manager.call_contract_function(

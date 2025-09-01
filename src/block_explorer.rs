@@ -670,8 +670,13 @@ impl BlockExplorer {
             });
         }
         
-        // Try to find as address
-        if blockchain.get_balance(query) >= 0.0 {
+        // Try to find as address (only if it has a non-zero balance or appears in transactions)
+        let balance = blockchain.get_balance(query);
+        let has_transactions = blockchain.blocks.iter().any(|b| 
+            b.transactions.iter().any(|tx| tx.sender == query || tx.receiver == query)
+        );
+        
+        if balance > 0.0 || has_transactions {
             let address_info = self.get_address_info(query).await?;
             let result_type = if address_info.is_contract {
                 SearchResultType::Contract
@@ -726,9 +731,9 @@ mod tests {
     
     #[tokio::test]
     async fn test_block_explorer_creation() {
-        let blockchain = Arc::new(RwLock::new(Blockchain::new()));
+        let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
         let wallet_manager = Arc::new(WalletManager::new());
-        let explorer = BlockExplorer::new(blockchain, wallet_manager);
+        let _explorer = BlockExplorer::new(blockchain, wallet_manager);
         
         // Test that explorer was created successfully
         assert!(true); // Basic creation test
@@ -736,7 +741,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_network_overview() {
-        let blockchain = Arc::new(RwLock::new(Blockchain::new()));
+        let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
         let wallet_manager = Arc::new(WalletManager::new());
         let explorer = BlockExplorer::new(blockchain, wallet_manager);
         
@@ -747,18 +752,18 @@ mod tests {
     
     #[tokio::test]
     async fn test_block_details() {
-        let blockchain = Arc::new(RwLock::new(Blockchain::new()));
+        let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
         let wallet_manager = Arc::new(WalletManager::new());
         let explorer = BlockExplorer::new(blockchain, wallet_manager);
         
         let block_details = explorer.get_block_details("0").await.unwrap();
         assert_eq!(block_details.block.index, 0);
-        assert_eq!(block_details.transaction_count, 0);
+        assert_eq!(block_details.transaction_count, 1); // Genesis block has 1 coinbase transaction
     }
     
     #[tokio::test]
     async fn test_search_functionality() {
-        let blockchain = Arc::new(RwLock::new(Blockchain::new()));
+        let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
         let wallet_manager = Arc::new(WalletManager::new());
         let explorer = BlockExplorer::new(blockchain, wallet_manager);
         
@@ -773,13 +778,13 @@ mod tests {
     
     #[tokio::test]
     async fn test_statistics() {
-        let blockchain = Arc::new(RwLock::new(Blockchain::new()));
+        let blockchain = Arc::new(RwLock::new(Blockchain::new_default().unwrap()));
         let wallet_manager = Arc::new(WalletManager::new());
         let explorer = BlockExplorer::new(blockchain, wallet_manager);
         
         let stats = explorer.get_statistics().await.unwrap();
         assert_eq!(stats.total_blocks, 1); // Genesis block
-        assert_eq!(stats.total_transactions, 0);
-        assert_eq!(stats.total_addresses, 0);
+        assert_eq!(stats.total_transactions, 1); // Genesis block has 1 coinbase transaction
+        assert_eq!(stats.total_addresses, 2); // COINBASE and genesis addresses
     }
 }

@@ -283,6 +283,26 @@ impl EthereumBridge {
 
         Ok(stats)
     }
+
+    /// Get bridge status
+    pub async fn get_bridge_status(&self) -> Result<BridgeStatus, BlockchainError> {
+        let transfers = self.pending_transfers.read().await;
+        
+        let mut status = BridgeStatus::default();
+        status.is_operational = true;
+        status.total_transfers = transfers.len() as u64;
+        status.last_transfer_time = transfers.values()
+            .map(|t| t.created_at)
+            .max()
+            .unwrap_or_else(|| chrono::Utc::now());
+        
+        Ok(status)
+    }
+
+    /// Get bridge configuration
+    pub async fn get_config(&self) -> Result<EthereumConfig, BlockchainError> {
+        Ok(self.config.clone())
+    }
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -292,6 +312,13 @@ pub struct BridgeStats {
     pub failed_transfers: u64,
     pub pending_transfers: u64,
     pub total_volume: f64,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct BridgeStatus {
+    pub is_operational: bool,
+    pub total_transfers: u64,
+    pub last_transfer_time: chrono::DateTime<chrono::Utc>,
 }
 
 #[cfg(test)]

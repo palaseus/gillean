@@ -255,12 +255,15 @@ pub fn create_router(state: AppState) -> Router {
         .route("/transaction/send", post(send_transaction))
         .route("/metrics", get(get_metrics))
         .route("/health", get(health_check))
+        .route("/pending", get(get_pending_transactions))
         // Ethereum Integration endpoints
         .route("/eth/transfer", post(ethereum_transfer))
         .route("/eth/balance/:address", get(get_ethereum_balance))
         .route("/eth/transfer/:id/status", get(get_ethereum_transfer_status))
         .route("/eth/transfers/pending", get(get_pending_ethereum_transfers))
         .route("/eth/bridge/stats", get(get_ethereum_bridge_stats))
+        .route("/eth/status", get(get_ethereum_status))
+        .route("/eth/config", get(get_ethereum_config))
         // DID endpoints
         .route("/did/create", post(create_did))
         .route("/did/:did", get(get_did_document))
@@ -713,6 +716,25 @@ async fn health_check(
     }))
 }
 
+/// Get pending transactions
+async fn get_pending_transactions(
+    State(state): State<AppState>,
+) -> std::result::Result<Json<ApiResponse<Vec<crate::Transaction>>>, ApiError> {
+    counter!("api_requests_total", 1, "endpoint" => "get_pending_transactions");
+    let start = std::time::Instant::now();
+    
+    let blockchain = state.blockchain.lock().unwrap();
+    let pending_transactions = blockchain.pending_transactions.clone();
+    
+    histogram!("api_request_duration_ms", start.elapsed().as_millis() as f64, "endpoint" => "get_pending_transactions");
+    
+    Ok(Json(ApiResponse {
+        success: true,
+        data: Some(pending_transactions),
+        message: "Pending transactions retrieved successfully".to_string(),
+    }))
+}
+
 // Ethereum Integration Handlers
 
 /// Transfer tokens to Ethereum
@@ -865,6 +887,54 @@ async fn get_ethereum_bridge_stats(
         success: true,
         data: Some(stats),
         message: "Bridge statistics retrieved successfully".to_string(),
+    }))
+}
+
+/// Get Ethereum bridge status
+async fn get_ethereum_status(
+    State(state): State<AppState>,
+) -> std::result::Result<Json<ApiResponse<crate::ethereum::BridgeStatus>>, ApiError> {
+    counter!("api_requests_total", 1, "endpoint" => "get_ethereum_status");
+
+    let ethereum_bridge = state.ethereum_bridge
+        .as_ref()
+        .ok_or_else(|| ApiError::Internal("Ethereum bridge not configured".to_string()))?;
+
+    let bridge_clone = {
+        let bridge = ethereum_bridge.lock().unwrap();
+        bridge.clone_for_background()
+    };
+    
+    let status = bridge_clone.get_bridge_status().await?;
+
+    Ok(Json(ApiResponse {
+        success: true,
+        data: Some(status),
+        message: "Bridge status retrieved successfully".to_string(),
+    }))
+}
+
+/// Get Ethereum bridge configuration
+async fn get_ethereum_config(
+    State(state): State<AppState>,
+) -> std::result::Result<Json<ApiResponse<crate::ethereum::EthereumConfig>>, ApiError> {
+    counter!("api_requests_total", 1, "endpoint" => "get_ethereum_config");
+
+    let ethereum_bridge = state.ethereum_bridge
+        .as_ref()
+        .ok_or_else(|| ApiError::Internal("Ethereum bridge not configured".to_string()))?;
+
+    let bridge_clone = {
+        let bridge = ethereum_bridge.lock().unwrap();
+        bridge.clone_for_background()
+    };
+    
+    let config = bridge_clone.get_config().await?;
+
+    Ok(Json(ApiResponse {
+        success: true,
+        data: Some(config),
+        message: "Bridge configuration retrieved successfully".to_string(),
     }))
 }
 

@@ -88,6 +88,7 @@ coverage/index.html
 blockchain_test_suite.log
 blockchain_test_report.txt
 enhanced_blockchain_test_report.txt
+comprehensive_blockchain_test_report.txt
 __pycache__/
 *.pyc
 *.pyo

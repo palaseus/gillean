@@ -6,11 +6,16 @@ use gillean::{
     Blockchain, Result, BlockchainError, BLOCKCHAIN_VERSION,
     crypto::{KeyPair, PublicKey}, BlockchainMonitor,
     BlockchainStorage, WalletManager, AppState, start_server, ConsensusType,
-    ShardManager, CrossChainBridge, ContractToolkit, ZKPManager, StateChannelManager, ZKProof
+    ShardManager, CrossChainBridge, ContractToolkit, ZKPManager, StateChannelManager, ZKProof,
+    consensus::ProofOfStake, governance::Governance
 };
 use gillean::contract_toolkit::ContractToolkitConfig;
 // use gillean::blockchain::BlockchainStats; // Unused import
 // use std::sync::{Arc, Mutex}; // Unused imports
+use std::sync::{Arc, Mutex};
+use gillean::did::DecentralizedIdentity;
+use gillean::ethereum::EthereumBridge;
+use gillean::ethereum::EthereumConfig;
 
 
 /// Gillean Blockchain - A simple blockchain implementation in Rust
@@ -1580,13 +1585,24 @@ async fn start_api_server(address: &str, db_path: &str) -> Result<()> {
     let mut wallet_manager = WalletManager::new();
     wallet_manager.set_storage_path(db_path.to_string());
     
+    // Initialize consensus and governance systems
+    let consensus = Arc::new(ProofOfStake::new(1000.0, 100, 5.0, 10.0)?);
+    let governance = Arc::new(Mutex::new(Governance::new(storage.clone(), consensus).await?));
+    
+    // Initialize DID system
+    let did_system = Arc::new(Mutex::new(DecentralizedIdentity::new(storage.clone()).await?));
+    
+    // Initialize Ethereum bridge
+    let ethereum_config = EthereumConfig::default();
+    let ethereum_bridge = Arc::new(Mutex::new(EthereumBridge::new(ethereum_config, storage.clone()).await?));
+    
     // Create application state
     let state = AppState {
         blockchain: std::sync::Arc::new(std::sync::Mutex::new(blockchain)),
         wallet_manager: std::sync::Arc::new(std::sync::Mutex::new(wallet_manager)),
-        ethereum_bridge: None, // TODO: Initialize when needed
-        did_system: None, // TODO: Initialize when needed
-        governance: None, // TODO: Initialize when needed
+        ethereum_bridge: Some(ethereum_bridge),
+        did_system: Some(did_system),
+        governance: Some(governance),
         simulation_manager: None, // TODO: Initialize when needed
         storage: storage.clone(),
         storage_path: db_path.to_string(),

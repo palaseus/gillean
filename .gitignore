@@ -83,3 +83,16 @@ coverage/index.html
 # Test SDK generation artifacts
 /tmp/gillean_sdk_demo/
 /tmp/gillean_ts_sdk_demo/
+
+# Python blockchain test suite
+blockchain_test_suite.log
+blockchain_test_report.txt
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+.venv

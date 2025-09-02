@@ -1,4 +1,4 @@
-use crate::{Blockchain, Transaction, BlockchainError, WalletManager, EthereumBridge, DecentralizedIdentity, Governance, SimulationManager};
+use crate::{Blockchain, Transaction, BlockchainError, WalletManager, EthereumBridge, DecentralizedIdentity, Governance, SimulationManager, BlockchainStorage};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -221,6 +221,7 @@ pub struct AppState {
     pub did_system: Option<Arc<Mutex<DecentralizedIdentity>>>,
     pub governance: Option<Arc<Mutex<Governance>>>,
     pub simulation_manager: Option<Arc<Mutex<SimulationManager>>>,
+    pub storage: Arc<BlockchainStorage>,
     pub storage_path: String,
     pub start_time: std::time::Instant,
 }
@@ -392,8 +393,7 @@ async fn add_transaction(
     )?;
     
     // Save to storage
-    let storage = crate::storage::BlockchainStorage::new(&state.storage_path)?;
-    storage.save_blockchain(&blockchain)?;
+    state.storage.save_blockchain(&blockchain)?;
     
     histogram!("api_request_duration_ms", start.elapsed().as_millis() as f64, "endpoint" => "add_transaction");
     
@@ -439,8 +439,7 @@ async fn add_signed_transaction(
     blockchain.add_transaction_object(transaction.clone())?;
     
     // Save to storage
-    let storage = crate::storage::BlockchainStorage::new(&state.storage_path)?;
-    storage.save_blockchain(&blockchain)?;
+    state.storage.save_blockchain(&blockchain)?;
     
     histogram!("api_request_duration_ms", start.elapsed().as_millis() as f64, "endpoint" => "add_signed_transaction");
     
@@ -495,8 +494,7 @@ async fn mine_block(
     let mining_time = mining_start.elapsed();
     
     // Save to storage
-    let storage = crate::storage::BlockchainStorage::new(&state.storage_path)?;
-    storage.save_blockchain(&blockchain)?;
+    state.storage.save_blockchain(&blockchain)?;
     
     let response = MiningResponse {
         block,
@@ -657,8 +655,7 @@ async fn send_transaction(
     blockchain.add_transaction_object(transaction.clone())?;
     
     // Save to storage
-    let storage = crate::storage::BlockchainStorage::new(&state.storage_path)?;
-    storage.save_blockchain(&blockchain)?;
+    state.storage.save_blockchain(&blockchain)?;
     
     histogram!("api_request_duration_ms", start.elapsed().as_millis() as f64, "endpoint" => "send_transaction");
     
@@ -685,7 +682,7 @@ async fn get_metrics(
         pending_transactions: blockchain.pending_transactions.len(),
         current_difficulty: blockchain.difficulty,
         mining_reward: blockchain.mining_reward,
-        blockchain_size_bytes: crate::storage::BlockchainStorage::new(&state.storage_path)?.size()?,
+        blockchain_size_bytes: blockchain.blocks.iter().map(|b| serde_json::to_string(b).unwrap_or_default().len()).sum::<usize>(),
         uptime_seconds: uptime.as_secs(),
         api_requests_total: 0, // TODO: Implement request counting
         api_errors_total: 0,   // TODO: Implement error counting
@@ -1380,8 +1377,25 @@ pub async fn start_server(state: AppState, address: &str) -> std::result::Result
     info!("Starting API server on {}", address);
     
     let listener = tokio::net::TcpListener::bind(address).await?;
-    axum::serve(listener, app).await?;
     
+    // Set up graceful shutdown
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    
+    // Handle shutdown signals
+    tokio::spawn(async move {
+        tokio::signal::ctrl_c().await.unwrap();
+        info!("Received shutdown signal, closing server...");
+        let _ = tx.send(());
+    });
+    
+    // Start the server with graceful shutdown
+    axum::serve(listener, app)
+        .with_graceful_shutdown(async {
+            rx.await.ok();
+        })
+        .await?;
+    
+    info!("Server shutdown complete");
     Ok(())
 }
 
@@ -1393,7 +1407,7 @@ mod tests {
     #[tokio::test]
     async fn test_health_check() {
         let temp_dir = tempdir().unwrap();
-        let _storage = crate::storage::BlockchainStorage::new(temp_dir.path()).unwrap();
+        let storage = Arc::new(crate::storage::BlockchainStorage::new(temp_dir.path()).unwrap());
         let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
         let wallet_manager = WalletManager::new();
         
@@ -1404,6 +1418,7 @@ mod tests {
             did_system: None,
             governance: None,
             simulation_manager: None,
+            storage: storage,
             storage_path: "./test_api_db".to_string(),
             start_time: std::time::Instant::now(),
         };

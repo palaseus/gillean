@@ -428,17 +428,22 @@ impl DevUtils {
     
     /// Run contract tests
     pub async fn run_contract_tests(&self, contract_address: &str) -> Result<Vec<TestResult>> {
-        let contract_tester = self.contract_tester.write().await;
+        // Get the test suite first
+        let test_suite = {
+            let contract_tester = self.contract_tester.read().await;
+            contract_tester.test_suites.get(contract_address).cloned()
+        };
         
-        if let Some(test_suite) = contract_tester.test_suites.get(contract_address) {
+        if let Some(test_suite) = test_suite {
             let mut results = Vec::new();
             
+            // Execute all test cases
             for test_case in &test_suite.tests {
                 let result = self.execute_test_case(test_case).await?;
                 results.push(result.clone());
             }
             
-            // Update test results separately to avoid borrow checker issues
+            // Update test results
             {
                 let mut contract_tester = self.contract_tester.write().await;
                 for result in &results {
@@ -582,6 +587,12 @@ impl TestEnvironment {
     }
 }
 
+impl Default for TestEnvironment {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DebugTools {
     /// Create new debug tools
     pub fn new() -> Self {
@@ -599,6 +610,12 @@ impl DebugTools {
                 call_counts: HashMap::new(),
             },
         }
+    }
+}
+
+impl Default for DebugTools {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -621,6 +638,12 @@ impl ContractTester {
     }
 }
 
+impl Default for ContractTester {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -637,7 +660,7 @@ mod tests {
         let _dev_utils = DevUtils::new(blockchain, wallet_manager, block_explorer);
         
         // Test that dev utils was created successfully
-        assert!(true); // Basic creation test
+        // Basic creation test passed
     }
     
     #[tokio::test]

@@ -1,24 +1,10 @@
 use yew::prelude::*;
-use gloo_net::http::Request;
-use serde::{Deserialize, Serialize};
-use crate::api::BlockchainApi;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct WalletInfo {
-    address: String,
-    balance: f64,
-    public_key: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct CreateWalletRequest {
-    password: String,
-}
+use crate::api::{BlockchainApi, WalletInfo, CreateWalletRequest};
 
 #[function_component(WalletManager)]
 pub fn wallet_manager() -> Html {
-    let wallets = use_state(|| Vec::<WalletInfo>::new());
-    let password = use_state(|| String::new());
+    let wallets = use_state(Vec::<WalletInfo>::new);
+    let password = use_state(String::new);
     let loading = use_state(|| false);
     let error = use_state(|| None::<String>);
     let success = use_state(|| None::<String>);
@@ -78,18 +64,23 @@ pub fn wallet_manager() -> Html {
                 password: password_value,
             };
 
+            let wallets_clone = wallets.clone();
+            let success_clone = success.clone();
+            let error_clone = error.clone();
+            let loading_clone = loading.clone();
+            
             wasm_bindgen_futures::spawn_local(async move {
                 match BlockchainApi::create_wallet(request).await {
                     Ok(wallet_info) => {
-                        let mut current_wallets = (*wallets).clone();
+                        let mut current_wallets = (*wallets_clone).clone();
                         current_wallets.push(wallet_info);
-                        wallets.set(current_wallets);
-                        success.set(Some("Wallet created successfully!".to_string()));
-                        loading.set(false);
+                        wallets_clone.set(current_wallets);
+                        success_clone.set(Some("Wallet created successfully!".to_string()));
+                        loading_clone.set(false);
                     }
                     Err(e) => {
-                        error.set(Some(e.to_string()));
-                        loading.set(false);
+                        error_clone.set(Some(e.to_string()));
+                        loading_clone.set(false);
                     }
                 }
             });
@@ -132,7 +123,7 @@ pub fn wallet_manager() -> Html {
                         <div class="wallets-grid">
                             {wallets.iter().map(|wallet| {
                                 html! {
-                                    <div class="wallet-item" key={&wallet.address}>
+                                    <div class="wallet-item" key={&*wallet.address}>
                                         <div class="wallet-header">
                                             <span class="wallet-address">{&wallet.address[..16]}{"..."}</span>
                                             <span class="wallet-balance">{wallet.balance}</span>

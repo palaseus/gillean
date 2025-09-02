@@ -349,7 +349,7 @@ impl BlockExplorer {
         let mut first_seen = u64::MAX;
         let mut last_seen = 0;
         
-        for (_height, block) in blockchain.blocks.iter().enumerate() {
+        for block in blockchain.blocks.iter() {
             for tx in &block.transactions {
                 if tx.sender == address || tx.receiver == address {
                     transaction_count += 1;
@@ -470,7 +470,7 @@ impl BlockExplorer {
         
         // This is a simplified implementation
         // In a real implementation, you would maintain an index of addresses and balances
-        for (_height, block) in blockchain.blocks.iter().enumerate() {
+        for block in blockchain.blocks.iter() {
             for tx in &block.transactions {
                 // Add sender and receiver to addresses list
                 if !addresses.iter().any(|a: &AddressSummary| a.address == tx.sender) {
@@ -736,7 +736,7 @@ mod tests {
         let _explorer = BlockExplorer::new(blockchain, wallet_manager);
         
         // Test that explorer was created successfully
-        assert!(true); // Basic creation test
+        // Basic creation test passed
     }
     
     #[tokio::test]

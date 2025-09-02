@@ -1,20 +1,10 @@
 use yew::prelude::*;
-use gloo_net::http::Request;
-use serde::{Deserialize, Serialize};
-use crate::api::BlockchainApi;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct ContractDeployRequest {
-    sender: String,
-    contract_code: String,
-    gas_limit: u64,
-    gas_price: f64,
-}
+use crate::api::{BlockchainApi, ContractDeployRequest};
 
 #[function_component(ContractDeploy)]
 pub fn contract_deploy() -> Html {
-    let sender = use_state(|| String::new());
-    let contract_code = use_state(|| String::new());
+    let sender = use_state(String::new);
+    let contract_code = use_state(String::new);
     let gas_limit = use_state(|| String::from("1000000"));
     let gas_price = use_state(|| String::from("0.000001"));
     let loading = use_state(|| false);
@@ -102,15 +92,19 @@ pub fn contract_deploy() -> Html {
                 gas_price: gas_price_parsed,
             };
 
+            let success_clone = success.clone();
+            let error_clone = error.clone();
+            let loading_clone = loading.clone();
+            
             wasm_bindgen_futures::spawn_local(async move {
                 match BlockchainApi::deploy_contract(request).await {
                     Ok(contract_address) => {
-                        success.set(Some(format!("Contract deployed successfully! Address: {}", contract_address)));
-                        loading.set(false);
+                        success_clone.set(Some(format!("Contract deployed successfully! Address: {}", contract_address)));
+                        loading_clone.set(false);
                     }
                     Err(e) => {
-                        error.set(Some(e.to_string()));
-                        loading.set(false);
+                        error_clone.set(Some(e.to_string()));
+                        loading_clone.set(false);
                     }
                 }
             });

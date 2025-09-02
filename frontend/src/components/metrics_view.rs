@@ -1,22 +1,5 @@
 use yew::prelude::*;
-use gloo_net::http::Request;
-use serde::{Deserialize, Serialize};
-use crate::api::BlockchainApi;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct BlockchainMetrics {
-    total_blocks: u64,
-    total_transactions: u64,
-    pending_transactions: u64,
-    total_contracts: u64,
-    contract_deployments: u64,
-    contract_calls: u64,
-    total_gas_used: u64,
-    consensus_type: String,
-    validators: Option<u64>,
-    total_stake: Option<f64>,
-    average_performance: Option<f64>,
-}
+use crate::api::{BlockchainApi, BlockchainMetrics};
 
 #[function_component(MetricsView)]
 pub fn metrics_view() -> Html {

@@ -573,9 +573,9 @@ impl WalletApp {
                         direction,
                         counterparty,
                     });
-                }
-            }
-        }
+                        }
+    }
+}
         
         // Sort by timestamp
         transactions.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
@@ -612,6 +612,12 @@ impl SessionManager {
     }
 }
 
+impl Default for SessionManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -628,7 +634,7 @@ mod tests {
         let _wallet_app = WalletApp::new(blockchain, wallet_manager, block_explorer);
         
         // Test that wallet app was created successfully
-        assert!(true); // Basic creation test
+        // Basic creation test passed
     }
     
     #[tokio::test]

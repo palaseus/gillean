@@ -308,7 +308,7 @@ mod tests {
     #[test]
     fn test_single_transaction_tree() {
         let tx = Transaction::new_transfer("alice".to_string(), "bob".to_string(), 100.0, None).unwrap();
-        let tree = MerkleTree::new(&[tx.clone()]).unwrap();
+        let tree = MerkleTree::new(std::slice::from_ref(&tx)).unwrap();
         
         assert!(tree.root.is_some());
         assert_eq!(tree.leaf_count, 1);

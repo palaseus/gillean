@@ -55,6 +55,10 @@ contracts/*.wat
 # Test artifacts
 coverage/
 *.profraw
+test_node.log
+test_results.json
+comprehensive_test_report.md
+node.pid
 
 # Temporary files
 *.tmp
@@ -65,3 +69,17 @@ tmp/
 # Backup files
 *.bak
 *.backup
+todo.md
+
+# Test database directories
+test_api_db/
+test_blockchain_db/
+test_*_db/
+
+# Test coverage reports
+tarpaulin-report.html
+coverage/index.html
+
+# Test SDK generation artifacts
+/tmp/gillean_sdk_demo/
+/tmp/gillean_ts_sdk_demo/

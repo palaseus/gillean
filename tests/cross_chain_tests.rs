@@ -236,7 +236,7 @@ impl CrossChainManager {
         }
 
         // Generate proof of locked funds
-        let proof = format!("proof_{}_{}", transaction.from_chain_to_string(), transaction.id);
+        let proof = format!("proof_{}_{}", transaction.get_from_chain_string(), transaction.id);
         transaction.proof = Some(proof);
         transaction.status = CrossChainStatus::Confirmed;
 
@@ -411,7 +411,7 @@ fn from_chain_to_string(chain_type: &ChainType) -> String {
 }
 
 impl CrossChainTransaction {
-    fn from_chain_to_string(&self) -> String {
+    fn get_from_chain_string(&self) -> String {
         chain_type_to_string(&self.from_chain)
     }
 }
@@ -715,5 +715,47 @@ impl CrossChainSuite {
 
         println!("✅ All Real Cross-Chain Integration tests passed!");
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cross_chain_manager_creation() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let _manager = CrossChainManager::new(Arc::new(Mutex::new(blockchain)));
+        assert!(true); // Basic test to ensure manager can be created
+    }
+
+    #[test]
+    fn test_bridge_creation() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let mut manager = CrossChainManager::new(Arc::new(Mutex::new(blockchain)));
+        
+        let bridge_id = manager.create_bridge(
+            ChainType::Ethereum,
+            ChainType::Gillean,
+            "0x1234567890123456789012345678901234567890".to_string(),
+        ).unwrap();
+        
+        assert!(!bridge_id.is_empty());
+        assert!(manager.bridges.contains_key(&bridge_id));
+    }
+
+    #[test]
+    fn test_ethereum_client_addition() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let mut manager = CrossChainManager::new(Arc::new(Mutex::new(blockchain)));
+        
+        let result = manager.add_ethereum_client(
+            "https://mainnet.infura.io/v3/test".to_string(),
+            "0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6".to_string(),
+            "private_key".to_string(),
+        );
+        
+        assert!(result.is_ok());
+        assert!(manager.ethereum_client.is_some());
     }
 }

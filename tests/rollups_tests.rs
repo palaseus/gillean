@@ -389,3 +389,54 @@ impl RollupsSuite {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rollup_manager_creation() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let _manager = RollupManager::new(
+            Arc::new(Mutex::new(blockchain)),
+            RollupType::Optimistic
+        );
+        assert!(true); // Basic test to ensure manager can be created
+    }
+
+    #[test]
+    fn test_optimistic_batch_creation() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let mut manager = RollupManager::new(
+            Arc::new(Mutex::new(blockchain)),
+            RollupType::Optimistic
+        );
+        
+        let transactions = vec![
+            Transaction::new_transfer("alice".to_string(), "bob".to_string(), 10.0, Some("tx1".to_string())).unwrap(),
+        ];
+        
+        let batch_id = manager.create_batch(transactions).unwrap();
+        
+        assert!(!batch_id.is_empty());
+        assert!(manager.batches.contains_key(&batch_id));
+    }
+
+    #[test]
+    fn test_zk_batch_creation() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let mut manager = RollupManager::new(
+            Arc::new(Mutex::new(blockchain)),
+            RollupType::ZK
+        );
+        
+        let transactions = vec![
+            Transaction::new_transfer("alice".to_string(), "bob".to_string(), 10.0, Some("tx1".to_string())).unwrap(),
+        ];
+        
+        let batch_id = manager.create_batch(transactions).unwrap();
+        
+        assert!(!batch_id.is_empty());
+        assert!(manager.batches.contains_key(&batch_id));
+    }
+}

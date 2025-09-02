@@ -326,6 +326,12 @@ impl MetricsCollector {
     }
 }
 
+impl Default for MetricsCollector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Metrics snapshot
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetricsSnapshot {
@@ -501,6 +507,12 @@ impl HealthCheckManager {
         } else {
             Ok(HealthStatus::Healthy)
         }
+    }
+}
+
+impl Default for HealthCheckManager {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -701,6 +713,12 @@ impl ProductionMonitor {
             uptime: Duration::from_secs(86400),
             timestamp: SystemTime::now(),
         })
+    }
+}
+
+impl Default for ProductionMonitor {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use thiserror::Error;
 use tokio::sync::mpsc;
-use url::Url;
 
 pub mod client;
 pub mod wallet;
@@ -310,7 +309,7 @@ pub enum ChannelStatus {
 }
 
 /// Analytics metric types
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum AnalyticsMetric {
     TransactionVolume,
     ZKPProofGeneration,
@@ -318,6 +317,72 @@ pub enum AnalyticsMetric {
     ShardPerformance,
     CrossChainTransfers,
     ContractDeployments,
+}
+
+/// Transaction information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransactionInfo {
+    pub hash: String,
+    pub from: String,
+    pub to: String,
+    pub amount: f64,
+    pub gas_used: u64,
+    pub block_number: u64,
+    pub timestamp: i64,
+    pub status: TransactionStatus,
+}
+
+/// Block information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlockInfo {
+    pub number: u64,
+    pub hash: String,
+    pub parent_hash: String,
+    pub timestamp: i64,
+    pub transactions: Vec<String>,
+    pub gas_used: u64,
+    pub gas_limit: u64,
+}
+
+/// Shard information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShardInfo {
+    pub shard_id: usize,
+    pub status: String,
+    pub transaction_count: u64,
+    pub gas_used: u64,
+    pub validators: Vec<String>,
+}
+
+/// Bridge status
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BridgeStatus {
+    pub is_active: bool,
+    pub total_transfers: u64,
+    pub pending_transfers: u64,
+    pub last_transfer_timestamp: i64,
+}
+
+/// Contract information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContractInfo {
+    pub address: String,
+    pub name: String,
+    pub bytecode: String,
+    pub abi: String,
+    pub creator: String,
+    pub creation_timestamp: i64,
+}
+
+/// Metrics data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetricsData {
+    pub total_transactions: u64,
+    pub total_blocks: u64,
+    pub active_validators: u64,
+    pub average_block_time: f64,
+    pub gas_price: f64,
+    pub network_hashrate: f64,
 }
 
 /// Analytics data

@@ -127,6 +127,12 @@ impl AIManager {
     }
 }
 
+impl Default for AIManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // Anomaly Detector
 pub struct AnomalyDetector {
     pub baseline_stats: HashMap<String, f64>,
@@ -187,6 +193,12 @@ impl AnomalyDetector {
         
         self.baseline_stats.insert("avg_amount".to_string(), avg_amount);
         self.baseline_stats.insert("std_amount".to_string(), std_amount);
+    }
+}
+
+impl Default for AnomalyDetector {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -263,6 +275,12 @@ impl FraudDetector {
     fn detect_geographic_anomaly(&self, _transaction: &Transaction) -> bool {
         // Simulate geographic anomaly detection
         simple_random() < 0.05 // 5% chance of geographic anomaly
+    }
+}
+
+impl Default for FraudDetector {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -466,6 +484,12 @@ impl AIIntegrationSuite {
     }
 }
 
+impl Default for AIIntegrationSuite {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // Simple random function for testing
 fn simple_random() -> f64 {
     use std::collections::hash_map::DefaultHasher;
@@ -475,4 +499,60 @@ fn simple_random() -> f64 {
     let mut hasher = DefaultHasher::new();
     SystemTime::now().hash(&mut hasher);
     (hasher.finish() % 100) as f64 / 100.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ai_manager_creation() {
+        let _manager = AIManager::new();
+        assert!(true); // Basic test to ensure manager can be created
+    }
+
+    #[test]
+    fn test_anomaly_detection() {
+        let manager = AIManager::new();
+        let transaction = Transaction::new_transfer(
+            "alice".to_string(),
+            "bob".to_string(),
+            100.0,
+            Some("test transaction".to_string()),
+        ).unwrap();
+        
+        let anomaly_score = manager.analyze_transaction(&transaction);
+        assert!(anomaly_score.score >= 0.0);
+        assert!(anomaly_score.confidence >= 0.0 && anomaly_score.confidence <= 1.0);
+    }
+
+    #[test]
+    fn test_fraud_detection() {
+        let manager = AIManager::new();
+        let transaction = Transaction::new_transfer(
+            "alice".to_string(),
+            "bob".to_string(),
+            100.0,
+            Some("test transaction".to_string()),
+        ).unwrap();
+        
+        let fraud_prediction = manager.predict_fraud(&transaction);
+        assert!(fraud_prediction.confidence >= 0.0 && fraud_prediction.confidence <= 1.0);
+    }
+
+    #[test]
+    fn test_model_training() {
+        let manager = AIManager::new();
+        let training_data = vec![
+            Transaction::new_transfer("sender1".to_string(), "receiver1".to_string(), 100.0, Some("tx1".to_string())).unwrap(),
+            Transaction::new_transfer("sender2".to_string(), "receiver2".to_string(), 200.0, Some("tx2".to_string())).unwrap(),
+        ];
+        
+        let result = manager.train_model("test_model", &training_data);
+        assert!(result.is_ok());
+        
+        let model = result.unwrap();
+        assert_eq!(model.model_id, "test_model");
+        assert_eq!(model.training_data_size, 2);
+    }
 }

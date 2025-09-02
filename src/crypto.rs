@@ -4,6 +4,9 @@ use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use log::debug;
 use crate::{Result, BlockchainError, utils};
+use argon2::{Argon2, PasswordHasher, password_hash::{rand_core::OsRng as ArgonOsRng, SaltString}};
+use pbkdf2::pbkdf2_hmac;
+use sha2::Sha256;
 
 /// Cryptographic key pair for signing transactions
 /// 
@@ -34,7 +37,7 @@ pub struct DigitalSignature {
 }
 
 impl KeyPair {
-    /// Generate a new random key pair
+    /// Generate a new random key pair using cryptographically secure random number generation
     /// 
     /// # Returns
     /// * `Result<KeyPair>` - The generated key pair or an error
@@ -48,11 +51,19 @@ impl KeyPair {
     /// assert!(!keypair.private_key.is_empty());
     /// ```
     pub fn generate() -> Result<Self> {
+        // Use cryptographically secure random number generator
         let mut rng = OsRng;
         
         // Generate 32 bytes for the secret key
         let mut secret_bytes = [0u8; 32];
         rng.fill_bytes(&mut secret_bytes);
+        
+        // Validate that we got non-zero entropy
+        if secret_bytes.iter().all(|&b| b == 0) {
+            return Err(BlockchainError::TransactionValidationFailed(
+                "Failed to generate secure random bytes".to_string(),
+            ));
+        }
         
         let signing_key = SigningKey::from_bytes(&secret_bytes);
         let verifying_key = signing_key.verifying_key();
@@ -64,6 +75,104 @@ impl KeyPair {
 
         debug!("Generated new key pair with public key: {}", utils::bytes_to_hex(&keypair.public_key));
         Ok(keypair)
+    }
+
+    /// Generate a key pair from a password using Argon2 key derivation
+    /// 
+    /// # Arguments
+    /// * `password` - The password to derive the key from
+    /// * `salt` - Optional salt (if None, a random salt will be generated)
+    /// 
+    /// # Returns
+    /// * `Result<KeyPair>` - The derived key pair or an error
+    pub fn from_password(password: &str, salt: Option<&[u8]>) -> Result<Self> {
+        if password.is_empty() {
+            return Err(BlockchainError::TransactionValidationFailed(
+                "Password cannot be empty".to_string(),
+            ));
+        }
+
+        let salt_string = if let Some(salt_bytes) = salt {
+            if salt_bytes.len() != 16 {
+                return Err(BlockchainError::TransactionValidationFailed(
+                    "Salt must be 16 bytes".to_string(),
+                ));
+            }
+            SaltString::encode_b64(salt_bytes)
+                .map_err(|e| BlockchainError::TransactionValidationFailed(
+                    format!("Invalid salt: {}", e)
+                ))?
+        } else {
+            SaltString::generate(&mut ArgonOsRng)
+        };
+
+        // Use Argon2id for key derivation
+        let argon2 = Argon2::default();
+        let password_hash = argon2
+            .hash_password(password.as_bytes(), &salt_string)
+            .map_err(|e| BlockchainError::TransactionValidationFailed(
+                format!("Key derivation failed: {}", e)
+            ))?;
+
+        // Extract the hash bytes and use first 32 bytes as private key
+        let hash = password_hash.hash.unwrap();
+        let hash_bytes = hash.as_bytes();
+        if hash_bytes.len() < 32 {
+            return Err(BlockchainError::TransactionValidationFailed(
+                "Derived key too short".to_string(),
+            ));
+        }
+
+        let mut private_key_bytes = [0u8; 32];
+        private_key_bytes.copy_from_slice(&hash_bytes[..32]);
+        
+        let signing_key = SigningKey::from_bytes(&private_key_bytes);
+        let verifying_key = signing_key.verifying_key();
+
+        Ok(KeyPair {
+            public_key: verifying_key.to_bytes().to_vec(),
+            private_key: signing_key.to_bytes().to_vec(),
+        })
+    }
+
+    /// Generate a key pair using PBKDF2 key derivation
+    /// 
+    /// # Arguments
+    /// * `password` - The password to derive the key from
+    /// * `salt` - The salt to use for key derivation
+    /// * `iterations` - Number of iterations (minimum 100,000 recommended)
+    /// 
+    /// # Returns
+    /// * `Result<KeyPair>` - The derived key pair or an error
+    pub fn from_password_pbkdf2(password: &str, salt: &[u8], iterations: u32) -> Result<Self> {
+        if password.is_empty() {
+            return Err(BlockchainError::TransactionValidationFailed(
+                "Password cannot be empty".to_string(),
+            ));
+        }
+
+        if salt.len() < 16 {
+            return Err(BlockchainError::TransactionValidationFailed(
+                "Salt must be at least 16 bytes".to_string(),
+            ));
+        }
+
+        if iterations < 100_000 {
+            return Err(BlockchainError::TransactionValidationFailed(
+                "Iterations must be at least 100,000 for security".to_string(),
+            ));
+        }
+
+        let mut private_key_bytes = [0u8; 32];
+        pbkdf2_hmac::<Sha256>(password.as_bytes(), salt, iterations, &mut private_key_bytes);
+        
+        let signing_key = SigningKey::from_bytes(&private_key_bytes);
+        let verifying_key = signing_key.verifying_key();
+
+        Ok(KeyPair {
+            public_key: verifying_key.to_bytes().to_vec(),
+            private_key: signing_key.to_bytes().to_vec(),
+        })
     }
 
     /// Create a key pair from existing keys
@@ -432,5 +541,124 @@ mod tests {
         assert!(signature.size() > 0);
         assert!(!signature.to_hex().is_empty());
         assert!(!signature.public_key_hex().is_empty());
+    }
+
+    #[test]
+    fn test_password_based_key_derivation_argon2() {
+        let password = "secure_password_123";
+        let keypair1 = KeyPair::from_password(password, None).unwrap();
+        let keypair2 = KeyPair::from_password(password, None).unwrap();
+        
+        // Different salts should produce different keys
+        assert_ne!(keypair1.private_key, keypair2.private_key);
+        
+        // But both should be valid keypairs
+        assert_eq!(keypair1.public_key.len(), 32);
+        assert_eq!(keypair1.private_key.len(), 32);
+        assert_eq!(keypair2.public_key.len(), 32);
+        assert_eq!(keypair2.private_key.len(), 32);
+        
+        // Test signing and verification
+        let message = "Test message";
+        let signature1 = keypair1.sign(message.as_bytes()).unwrap();
+        let signature2 = keypair2.sign(message.as_bytes()).unwrap();
+        
+        assert!(signature1.verify(message.as_bytes()).unwrap());
+        assert!(signature2.verify(message.as_bytes()).unwrap());
+    }
+
+    #[test]
+    fn test_password_based_key_derivation_argon2_with_salt() {
+        let password = "secure_password_123";
+        let salt = b"fixed_salt_16byt"; // Exactly 16 bytes
+        
+        let keypair1 = KeyPair::from_password(password, Some(salt)).unwrap();
+        let keypair2 = KeyPair::from_password(password, Some(salt)).unwrap();
+        
+        // Same password and salt should produce same keys
+        assert_eq!(keypair1.private_key, keypair2.private_key);
+        assert_eq!(keypair1.public_key, keypair2.public_key);
+    }
+
+    #[test]
+    fn test_password_based_key_derivation_pbkdf2() {
+        let password = "secure_password_123";
+        let salt = b"fixed_salt_16byt"; // Exactly 16 bytes
+        let iterations = 100_000;
+        
+        let keypair1 = KeyPair::from_password_pbkdf2(password, salt, iterations).unwrap();
+        let keypair2 = KeyPair::from_password_pbkdf2(password, salt, iterations).unwrap();
+        
+        // Same password, salt, and iterations should produce same keys
+        assert_eq!(keypair1.private_key, keypair2.private_key);
+        assert_eq!(keypair1.public_key, keypair2.public_key);
+        
+        // Test signing and verification
+        let message = "Test message";
+        let signature = keypair1.sign(message.as_bytes()).unwrap();
+        assert!(signature.verify(message.as_bytes()).unwrap());
+    }
+
+    #[test]
+    fn test_password_validation() {
+        // Empty password should fail
+        assert!(KeyPair::from_password("", None).is_err());
+        assert!(KeyPair::from_password_pbkdf2("", b"valid_salt_16by", 100_000).is_err());
+        
+        // Invalid salt length should fail
+        assert!(KeyPair::from_password("password", Some(b"short")).is_err());
+        assert!(KeyPair::from_password_pbkdf2("password", b"short", 100_000).is_err());
+        
+        // Insufficient iterations should fail
+        assert!(KeyPair::from_password_pbkdf2("password", b"valid_salt_16by", 1000).is_err());
+    }
+
+    #[test]
+    fn test_secure_random_generation() {
+        // Generate multiple keypairs and ensure they're different
+        let keypair1 = KeyPair::generate().unwrap();
+        let keypair2 = KeyPair::generate().unwrap();
+        let keypair3 = KeyPair::generate().unwrap();
+        
+        assert_ne!(keypair1.private_key, keypair2.private_key);
+        assert_ne!(keypair2.private_key, keypair3.private_key);
+        assert_ne!(keypair1.private_key, keypair3.private_key);
+        
+        assert_ne!(keypair1.public_key, keypair2.public_key);
+        assert_ne!(keypair2.public_key, keypair3.public_key);
+        assert_ne!(keypair1.public_key, keypair3.public_key);
+    }
+
+    #[test]
+    fn test_key_derivation_deterministic() {
+        let password = "test_password";
+        let salt = b"deterministic_16"; // Exactly 16 bytes
+        
+        // Generate keypair multiple times with same parameters
+        let keypair1 = KeyPair::from_password(password, Some(salt)).unwrap();
+        let keypair2 = KeyPair::from_password(password, Some(salt)).unwrap();
+        
+        // Should be identical
+        assert_eq!(keypair1.private_key, keypair2.private_key);
+        assert_eq!(keypair1.public_key, keypair2.public_key);
+        
+        // Test with PBKDF2 as well
+        let keypair3 = KeyPair::from_password_pbkdf2(password, salt, 100_000).unwrap();
+        let keypair4 = KeyPair::from_password_pbkdf2(password, salt, 100_000).unwrap();
+        
+        assert_eq!(keypair3.private_key, keypair4.private_key);
+        assert_eq!(keypair3.public_key, keypair4.public_key);
+    }
+
+    #[test]
+    fn test_key_derivation_different_passwords() {
+        let salt = b"same_salt_16byte"; // Exactly 16 bytes
+        
+        let keypair1 = KeyPair::from_password("password1", Some(salt)).unwrap();
+        let keypair2 = KeyPair::from_password("password2", Some(salt)).unwrap();
+        
+        // Different passwords should produce different keys
+        assert_ne!(keypair1.private_key, keypair2.private_key);
+        assert_ne!(keypair1.public_key, keypair2.public_key);
     }
 }

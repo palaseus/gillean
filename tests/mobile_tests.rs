@@ -578,7 +578,7 @@ impl MobileSupportSuite {
         println!("  Testing security features...");
         
         // Test different security levels
-        let security_levels = vec![
+        let security_levels = [
             SecurityLevel::Basic,
             SecurityLevel::Enhanced,
             SecurityLevel::Maximum,
@@ -640,5 +640,64 @@ impl MobileSupportSuite {
         assert!(result.is_err());
         
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_mobile_suite_creation() {
+        let _suite = MobileSupportSuite::new().unwrap();
+        assert!(true); // Basic test to ensure suite can be created
+    }
+
+    #[test]
+    fn test_mobile_device_registration() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let manager = MobileManager::new(blockchain);
+        
+        let device = MobileDevice {
+            device_id: "test_device".to_string(),
+            platform: Platform::Android,
+            os_version: "12.0".to_string(),
+            app_version: "1.0.0".to_string(),
+            screen_resolution: (360, 640),
+            network_type: NetworkType::WiFi,
+            battery_level: 0.85,
+            is_online: true,
+        };
+        
+        let result = manager.register_device(device);
+        assert!(result.is_ok());
+        
+        let devices = manager.devices.lock().unwrap();
+        assert!(devices.contains_key("test_device"));
+    }
+
+    #[test]
+    fn test_mobile_wallet_creation() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let manager = MobileManager::new(blockchain);
+        
+        let device = MobileDevice {
+            device_id: "test_device".to_string(),
+            platform: Platform::IOs,
+            os_version: "15.0".to_string(),
+            app_version: "1.0.0".to_string(),
+            screen_resolution: (375, 812),
+            network_type: NetworkType::WiFi,
+            battery_level: 0.85,
+            is_online: true,
+        };
+        
+        manager.register_device(device).unwrap();
+        
+        let wallet = manager.create_wallet("test_device", SecurityLevel::Basic).unwrap();
+        
+        assert!(!wallet.wallet_id.is_empty());
+        assert_eq!(wallet.device_id, "test_device");
+        assert_eq!(wallet.security_level, SecurityLevel::Basic);
     }
 }

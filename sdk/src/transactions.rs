@@ -1,16 +1,17 @@
-use super::{SDKResult, SDKError, SDKConfig, TransactionResult, PrivateTransactionResult, StateChannelResult, StateChannelUpdateResult, StateChannelCloseResult, TransactionStatus, ChannelStatus};
+use super::{SDKResult, SDKConfig, TransactionResult, PrivateTransactionResult, StateChannelResult, StateChannelUpdateResult, StateChannelCloseResult, TransactionStatus, ChannelStatus};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use sha2::Digest;
 
 /// Transaction manager for sending transactions and managing state channels
 pub struct TransactionManager {
-    config: SDKConfig,
+    _config: SDKConfig,
 }
 
 impl TransactionManager {
     /// Create a new transaction manager
     pub fn new(config: SDKConfig) -> Self {
-        Self { config }
+        Self { _config: config }
     }
 
     /// Send a regular transaction
@@ -19,7 +20,7 @@ impl TransactionManager {
         from: &str,
         to: &str,
         amount: f64,
-        password: &str,
+        _password: &str,
         memo: Option<&str>,
     ) -> SDKResult<TransactionResult> {
         // In a real implementation, this would:
@@ -52,7 +53,7 @@ impl TransactionManager {
         from: &str,
         to: &str,
         amount: f64,
-        password: &str,
+        _password: &str,
         memo: Option<&str>,
     ) -> SDKResult<PrivateTransactionResult> {
         // In a real implementation, this would:
@@ -84,8 +85,8 @@ impl TransactionManager {
         participant: &str,
         counterparty: &str,
         initial_balance: f64,
-        timeout: u64,
-        password: &str,
+        _timeout: u64,
+        _password: &str,
     ) -> SDKResult<StateChannelResult> {
         // In a real implementation, this would:
         // 1. Validate participants
@@ -119,7 +120,7 @@ impl TransactionManager {
         &self,
         channel_id: &str,
         new_balance: HashMap<String, f64>,
-        password: &str,
+        _password: &str,
     ) -> SDKResult<StateChannelUpdateResult> {
         // In a real implementation, this would:
         // 1. Validate the channel exists and is open
@@ -143,7 +144,7 @@ impl TransactionManager {
         &self,
         channel_id: &str,
         final_balance: HashMap<String, f64>,
-        password: &str,
+        _password: &str,
     ) -> SDKResult<StateChannelCloseResult> {
         // In a real implementation, this would:
         // 1. Validate the channel exists
@@ -166,14 +167,14 @@ impl TransactionManager {
     }
 
     /// Get transaction status
-    pub async fn get_transaction_status(&self, transaction_hash: &str) -> SDKResult<TransactionStatus> {
+    pub async fn get_transaction_status(&self, _transaction_hash: &str) -> SDKResult<TransactionStatus> {
         // In a real implementation, this would query the blockchain
         // For now, we'll return a mock status
         Ok(TransactionStatus::Confirmed)
     }
 
     /// Get transaction history
-    pub async fn get_transaction_history(&self, address: &str, limit: usize) -> SDKResult<Vec<TransactionInfo>> {
+    pub async fn get_transaction_history(&self, address: &str, _limit: usize) -> SDKResult<Vec<TransactionInfo>> {
         // In a real implementation, this would query the blockchain
         // For now, we'll return mock data
         Ok(vec![
@@ -207,7 +208,7 @@ impl TransactionManager {
         if let Some(memo_text) = memo {
             hasher.update(memo_text.as_bytes());
         }
-        hasher.update(chrono::Utc::now().timestamp_nanos().to_le_bytes());
+        hasher.update(chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0).to_le_bytes());
         let hash = hasher.finalize();
         hex::encode(hash)
     }
@@ -219,7 +220,7 @@ impl TransactionManager {
         hasher.update(from.as_bytes());
         hasher.update(to.as_bytes());
         hasher.update(amount.to_le_bytes());
-        hasher.update(chrono::Utc::now().timestamp_nanos().to_le_bytes());
+        hasher.update(chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0).to_le_bytes());
         let hash = hasher.finalize();
         hex::encode(&hash[..16]) // Use first 16 bytes for proof ID
     }

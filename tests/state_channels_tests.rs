@@ -304,3 +304,54 @@ impl StateChannelsSuite {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_state_channel_manager_creation() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let _manager = StateChannelManager::new(Arc::new(Mutex::new(blockchain)));
+        assert!(true); // Basic test to ensure manager can be created
+    }
+
+    #[test]
+    fn test_channel_creation() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let mut manager = StateChannelManager::new(Arc::new(Mutex::new(blockchain)));
+        
+        let participants = vec!["alice".to_string(), "bob".to_string()];
+        let initial_balances = HashMap::from([
+            ("alice".to_string(), 100.0),
+            ("bob".to_string(), 100.0),
+        ]);
+        
+        let channel_id = manager.create_channel(participants, initial_balances).unwrap();
+        
+        assert!(!channel_id.is_empty());
+        assert!(manager.channels.contains_key(&channel_id));
+    }
+
+    #[test]
+    fn test_state_update() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let mut manager = StateChannelManager::new(Arc::new(Mutex::new(blockchain)));
+        
+        let participants = vec!["alice".to_string(), "bob".to_string()];
+        let initial_balances = HashMap::from([
+            ("alice".to_string(), 100.0),
+            ("bob".to_string(), 100.0),
+        ]);
+        
+        let channel_id = manager.create_channel(participants, initial_balances).unwrap();
+        
+        let new_balances = HashMap::from([
+            ("alice".to_string(), 90.0),
+            ("bob".to_string(), 110.0),
+        ]);
+        
+        let result = manager.update_state(&channel_id, new_balances, "signature".to_string());
+        assert!(result.is_ok());
+    }
+}

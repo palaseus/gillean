@@ -37,7 +37,15 @@ impl TestRunner {
             start_time: Instant::now(),
         }
     }
+}
 
+impl Default for TestRunner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl TestRunner {
     pub fn run_basic_blockchain_test(&mut self) -> Result<(), BlockchainError> {
         let test_start = Instant::now();
         

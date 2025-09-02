@@ -28,7 +28,15 @@ impl SecurityTestSuite {
             manager: Arc::new(SecurityManager::new(config)),
         }
     }
+}
 
+impl Default for SecurityTestSuite {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SecurityTestSuite {
     pub async fn run_all_tests(&self) -> Result<(), String> {
         println!("🔒 Running Security Enhancement tests...");
 
@@ -215,6 +223,8 @@ impl SecurityTestSuite {
         if !threats.is_empty() {
             let threat_id = &threats[0].threat_id;
             detector.mitigate_threat(threat_id).await?;
+            // Note: Threats detected are expected in this test scenario
+            println!("      ⚠️  Security threats detected, initiating mitigation");
         }
 
         println!("      ✅ Threat Detector tests passed");

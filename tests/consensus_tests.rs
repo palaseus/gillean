@@ -217,11 +217,7 @@ impl ConsensusManager {
     }
 
     fn select_pbft_primary(&self) -> Option<String> {
-        if let Some(pbft_state) = &self.pbft_state {
-            Some(pbft_state.primary.clone())
-        } else {
-            None
-        }
+        self.pbft_state.as_ref().map(|pbft_state| pbft_state.primary.clone())
     }
 
     fn propose_dpos_block(&mut self, validator_address: &str, _transactions: Vec<String>) -> Result<String> {
@@ -318,7 +314,7 @@ impl ConsensusManager {
                     })
                     .count();
 
-                if prepare_count >= (2 * pbft_state.validators.len() / 3) + 1 {
+                if prepare_count > (2 * pbft_state.validators.len() / 3) {
                     pbft_state.prepared.insert(block_hash.to_string(), pbft_state.sequence);
                 }
             }
@@ -363,7 +359,7 @@ impl ConsensusManager {
                     })
                     .count();
 
-                if commit_count >= (2 * pbft_state.validators.len() / 3) + 1 {
+                if commit_count > (2 * pbft_state.validators.len() / 3) {
                     pbft_state.committed.insert(block_hash.to_string(), pbft_state.sequence);
                     println!("PBFT block finalized: {}", block_hash);
                 } else {
@@ -685,5 +681,53 @@ impl ConsensusSuite {
 
         println!("✅ All Advanced Consensus tests passed!");
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_consensus_manager_creation() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let _manager = ConsensusManager::new(
+            Arc::new(Mutex::new(blockchain)),
+            ConsensusType::DPoS
+        );
+        assert!(true); // Basic test to ensure manager can be created
+    }
+
+    #[test]
+    fn test_dpos_validator_registration() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let mut manager = ConsensusManager::new(
+            Arc::new(Mutex::new(blockchain)),
+            ConsensusType::DPoS
+        );
+        
+        let result = manager.register_validator("validator1".to_string(), 5000.0);
+        assert!(result.is_ok());
+        
+        assert!(manager.validators.contains_key("validator1"));
+    }
+
+    #[test]
+    fn test_pbft_initialization() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let mut manager = ConsensusManager::new(
+            Arc::new(Mutex::new(blockchain)),
+            ConsensusType::PBFT
+        );
+        
+        let validators = vec![
+            "validator1".to_string(),
+            "validator2".to_string(),
+            "validator3".to_string(),
+            "validator4".to_string(),
+        ];
+        
+        let result = manager.initialize_pbft(validators);
+        assert!(result.is_ok());
     }
 }

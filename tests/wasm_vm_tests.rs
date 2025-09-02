@@ -76,7 +76,7 @@ impl WASMVM {
         }
 
         // Check WASM magic number (0x00 0x61 0x73 0x6d)
-        if &wasm_bytes[0..4] != [0x00, 0x61, 0x73, 0x6d] {
+        if wasm_bytes[0..4] != [0x00, 0x61, 0x73, 0x6d] {
             return Err(BlockchainError::InvalidInput("Invalid WASM module: wrong magic number".to_string()));
         }
 
@@ -514,5 +514,49 @@ impl WASMVMSuite {
 
         println!("✅ All Full WebAssembly VM tests passed!");
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_wasm_vm_creation() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let _vm = WASMVM::new(Arc::new(Mutex::new(blockchain)));
+        assert!(true); // Basic test to ensure VM can be created
+    }
+
+    #[test]
+    fn test_wasm_module_loading() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let mut vm = WASMVM::new(Arc::new(Mutex::new(blockchain)));
+        
+        let wasm_bytes = vec![
+            0x00, 0x61, 0x73, 0x6d, // Magic number
+            0x01, 0x00, 0x00, 0x00, // Version
+        ];
+        
+        let result = vm.load_module("test_module".to_string(), wasm_bytes);
+        assert!(result.is_ok());
+        assert!(vm.modules.contains_key("test_module"));
+    }
+
+    #[test]
+    fn test_wasm_instantiation() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let mut vm = WASMVM::new(Arc::new(Mutex::new(blockchain)));
+        
+        let wasm_bytes = vec![
+            0x00, 0x61, 0x73, 0x6d, // Magic number
+            0x01, 0x00, 0x00, 0x00, // Version
+        ];
+        
+        vm.load_module("test_module".to_string(), wasm_bytes).unwrap();
+        let result = vm.instantiate_module("test_module", "test_instance".to_string());
+        
+        assert!(result.is_ok());
+        assert!(vm.instances.contains_key("test_instance"));
     }
 }

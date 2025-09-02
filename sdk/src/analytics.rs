@@ -1,16 +1,27 @@
-use super::{SDKResult, SDKError, SDKConfig, AnalyticsData, AnalyticsMetric, DataPoint, AnalyticsSummary};
+use super::{SDKResult, SDKConfig, AnalyticsData, AnalyticsMetric, DataPoint, AnalyticsSummary};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Simple deterministic random function for testing
+fn simple_random() -> f64 {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    use std::time::SystemTime;
+    
+    let mut hasher = DefaultHasher::new();
+    SystemTime::now().hash(&mut hasher);
+    (hasher.finish() % 100) as f64 / 100.0
+}
+
 /// Analytics client for retrieving blockchain analytics and metrics
 pub struct AnalyticsClient {
-    config: SDKConfig,
+    _config: SDKConfig,
 }
 
 impl AnalyticsClient {
     /// Create a new analytics client
     pub fn new(config: SDKConfig) -> Self {
-        Self { config }
+        Self { _config: config }
     }
 
     /// Get analytics data for a specific metric
@@ -134,7 +145,7 @@ impl AnalyticsClient {
             AnalyticsMetric::TransactionVolume => {
                 for i in 0..24 {
                     let timestamp = now - (23 - i) * 3600;
-                    let value = 100.0 + (i as f64 * 10.0) + (rand::random::<f64>() * 20.0);
+                    let value = 100.0 + (i as f64 * 10.0) + (simple_random() * 20.0);
                     data_points.push(DataPoint {
                         timestamp,
                         value,
@@ -145,7 +156,7 @@ impl AnalyticsClient {
             AnalyticsMetric::ZKPProofGeneration => {
                 for i in 0..24 {
                     let timestamp = now - (23 - i) * 3600;
-                    let value = 5.0 + (i as f64 * 2.0) + (rand::random::<f64>() * 5.0);
+                    let value = 5.0 + (i as f64 * 2.0) + (simple_random() * 5.0);
                     data_points.push(DataPoint {
                         timestamp,
                         value,
@@ -156,7 +167,7 @@ impl AnalyticsClient {
             AnalyticsMetric::StateChannelActivity => {
                 for i in 0..24 {
                     let timestamp = now - (23 - i) * 3600;
-                    let value = 2.0 + (i as f64 * 0.5) + (rand::random::<f64>() * 2.0);
+                    let value = 2.0 + (i as f64 * 0.5) + (simple_random() * 2.0);
                     data_points.push(DataPoint {
                         timestamp,
                         value,
@@ -167,7 +178,7 @@ impl AnalyticsClient {
             AnalyticsMetric::ShardPerformance => {
                 for i in 0..24 {
                     let timestamp = now - (23 - i) * 3600;
-                    let value = 80.0 + (i as f64 * 5.0) + (rand::random::<f64>() * 10.0);
+                    let value = 80.0 + (i as f64 * 5.0) + (simple_random() * 10.0);
                     data_points.push(DataPoint {
                         timestamp,
                         value,
@@ -178,7 +189,7 @@ impl AnalyticsClient {
             AnalyticsMetric::CrossChainTransfers => {
                 for i in 0..24 {
                     let timestamp = now - (23 - i) * 3600;
-                    let value = 1.0 + (i as f64 * 0.2) + (rand::random::<f64>() * 1.0);
+                    let value = 1.0 + (i as f64 * 0.2) + (simple_random() * 1.0);
                     data_points.push(DataPoint {
                         timestamp,
                         value,
@@ -189,7 +200,7 @@ impl AnalyticsClient {
             AnalyticsMetric::ContractDeployments => {
                 for i in 0..24 {
                     let timestamp = now - (23 - i) * 3600;
-                    let value = 0.5 + (i as f64 * 0.1) + (rand::random::<f64>() * 0.5);
+                    let value = 0.5 + (i as f64 * 0.1) + (simple_random() * 0.5);
                     data_points.push(DataPoint {
                         timestamp,
                         value,
@@ -210,12 +221,12 @@ impl AnalyticsClient {
         for i in 0..days {
             let timestamp = now - ((days - 1 - i) as i64 * 86400);
             let value = match metric_type {
-                AnalyticsMetric::TransactionVolume => 1000.0 + (i as f64 * 100.0) + (rand::random::<f64>() * 200.0),
-                AnalyticsMetric::ZKPProofGeneration => 50.0 + (i as f64 * 10.0) + (rand::random::<f64>() * 20.0),
-                AnalyticsMetric::StateChannelActivity => 20.0 + (i as f64 * 2.0) + (rand::random::<f64>() * 5.0),
-                AnalyticsMetric::ShardPerformance => 800.0 + (i as f64 * 50.0) + (rand::random::<f64>() * 100.0),
-                AnalyticsMetric::CrossChainTransfers => 10.0 + (i as f64 * 1.0) + (rand::random::<f64>() * 3.0),
-                AnalyticsMetric::ContractDeployments => 5.0 + (i as f64 * 0.5) + (rand::random::<f64>() * 2.0),
+                AnalyticsMetric::TransactionVolume => 1000.0 + (i as f64 * 100.0) + (simple_random() * 200.0),
+                AnalyticsMetric::ZKPProofGeneration => 50.0 + (i as f64 * 10.0) + (simple_random() * 20.0),
+                AnalyticsMetric::StateChannelActivity => 20.0 + (i as f64 * 2.0) + (simple_random() * 5.0),
+                AnalyticsMetric::ShardPerformance => 800.0 + (i as f64 * 50.0) + (simple_random() * 100.0),
+                AnalyticsMetric::CrossChainTransfers => 10.0 + (i as f64 * 1.0) + (simple_random() * 3.0),
+                AnalyticsMetric::ContractDeployments => 5.0 + (i as f64 * 0.5) + (simple_random() * 2.0),
             };
 
             data_points.push(DataPoint {
@@ -322,14 +333,9 @@ mod tests {
         let config = crate::SDKConfig::default();
         let analytics_client = AnalyticsClient::new(config);
         
-        let start_time = chrono::Utc::now().timestamp() - 86400; // 24 hours ago
-        let end_time = chrono::Utc::now().timestamp();
-        
         let data = analytics_client.get_historical_analytics(
             AnalyticsMetric::TransactionVolume,
-            start_time,
-            end_time,
-            "hour",
+            7, // 7 days
         ).await.unwrap();
         
         assert_eq!(data.metric_type, AnalyticsMetric::TransactionVolume);

@@ -1,22 +1,12 @@
 use yew::prelude::*;
-use gloo_net::http::Request;
-use serde::{Deserialize, Serialize};
-use crate::api::BlockchainApi;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct TransactionRequest {
-    sender: String,
-    receiver: String,
-    amount: f64,
-    message: Option<String>,
-}
+use crate::api::{BlockchainApi, TransactionRequest};
 
 #[function_component(TransactionForm)]
 pub fn transaction_form() -> Html {
-    let sender = use_state(|| String::new());
-    let receiver = use_state(|| String::new());
-    let amount = use_state(|| String::new());
-    let message = use_state(|| String::new());
+    let sender = use_state(String::new);
+    let receiver = use_state(String::new);
+    let amount = use_state(String::new);
+    let message = use_state(String::new);
     let loading = use_state(|| false);
     let error = use_state(|| None::<String>);
     let success = use_state(|| None::<String>);
@@ -94,15 +84,19 @@ pub fn transaction_form() -> Html {
                 message: if message_value.is_empty() { None } else { Some(message_value) },
             };
 
+            let success_clone = success.clone();
+            let error_clone = error.clone();
+            let loading_clone = loading.clone();
+            
             wasm_bindgen_futures::spawn_local(async move {
                 match BlockchainApi::create_transaction(request).await {
                     Ok(_) => {
-                        success.set(Some("Transaction created successfully!".to_string()));
-                        loading.set(false);
+                        success_clone.set(Some("Transaction created successfully!".to_string()));
+                        loading_clone.set(false);
                     }
                     Err(e) => {
-                        error.set(Some(e.to_string()));
-                        loading.set(false);
+                        error_clone.set(Some(e.to_string()));
+                        loading_clone.set(false);
                     }
                 }
             });

@@ -758,7 +758,7 @@ impl CodeAnalyzer {
         }
         
         let mi = 171.0 - 5.2 * complexity.ln() - 0.23 * lines.ln() - 16.2 * (complexity / lines).ln();
-        mi.max(0.0).min(100.0)
+        mi.clamp(0.0, 100.0)
     }
 
     fn calculate_test_coverage(&self, code_content: &str) -> f64 {

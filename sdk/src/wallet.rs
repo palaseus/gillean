@@ -2,12 +2,13 @@ use super::{SDKResult, SDKError, SDKConfig, WalletInfo};
 use ed25519_dalek::{SigningKey, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use uuid::Uuid;
+use sha2::Digest;
+use rand::RngCore;
 
 /// Wallet manager for creating and managing wallets
 pub struct WalletManager {
-    config: SDKConfig,
-    wallets: HashMap<String, WalletData>,
+    _config: SDKConfig,
+    _wallets: HashMap<String, WalletData>,
 }
 
 /// Internal wallet data structure
@@ -25,8 +26,8 @@ impl WalletManager {
     /// Create a new wallet manager
     pub fn new(config: SDKConfig) -> Self {
         Self {
-            config,
-            wallets: HashMap::new(),
+            _config: config,
+            _wallets: HashMap::new(),
         }
     }
 
@@ -34,7 +35,9 @@ impl WalletManager {
     pub async fn create_wallet(&self, password: &str, name: Option<&str>) -> SDKResult<WalletInfo> {
         // Generate new keypair
         let mut rng = rand::rngs::OsRng;
-        let signing_key = SigningKey::generate(&mut rng);
+        let mut secret_bytes = [0u8; 32];
+        rng.fill_bytes(&mut secret_bytes);
+        let signing_key = SigningKey::from_bytes(&secret_bytes);
         let verifying_key = signing_key.verifying_key();
 
         // Generate wallet address
@@ -139,7 +142,7 @@ impl WalletManager {
     }
 
     /// Sign transaction data
-    pub async fn sign_transaction(&self, address: &str, password: &str, transaction_data: &[u8]) -> SDKResult<Vec<u8>> {
+    pub async fn sign_transaction(&self, _address: &str, _password: &str, transaction_data: &[u8]) -> SDKResult<Vec<u8>> {
         // In a real implementation, this would:
         // 1. Load the wallet
         // 2. Decrypt the private key
@@ -152,7 +155,7 @@ impl WalletManager {
     }
 
     /// Export private key
-    pub async fn export_private_key(&self, address: &str, password: &str) -> SDKResult<String> {
+    pub async fn export_private_key(&self, _address: &str, _password: &str) -> SDKResult<String> {
         // In a real implementation, this would:
         // 1. Load the wallet
         // 2. Verify the password
@@ -162,14 +165,14 @@ impl WalletManager {
     }
 
     /// Update wallet balance
-    pub async fn update_balance(&self, address: &str, balance: f64) -> SDKResult<()> {
+    pub async fn update_balance(&self, _address: &str, _balance: f64) -> SDKResult<()> {
         // In a real implementation, this would update the stored wallet data
         // For now, we'll just return success
         Ok(())
     }
 
     /// Delete wallet
-    pub async fn delete_wallet(&self, address: &str, password: &str) -> SDKResult<()> {
+    pub async fn delete_wallet(&self, _address: &str, _password: &str) -> SDKResult<()> {
         // In a real implementation, this would:
         // 1. Verify the password
         // 2. Remove the wallet from storage
@@ -181,7 +184,7 @@ impl WalletManager {
     fn generate_address(&self, public_key: &VerifyingKey) -> String {
         let public_key_bytes = public_key.to_bytes();
         let mut hasher = sha2::Sha256::new();
-        hasher.update(&public_key_bytes);
+        hasher.update(public_key_bytes);
         let hash = hasher.finalize();
         
         // Take first 20 bytes for address
@@ -200,6 +203,7 @@ impl WalletManager {
     }
 
     /// Decrypt private key with password
+    #[allow(dead_code)]
     fn decrypt_private_key(&self, encrypted_data: &[u8], password: &str) -> SDKResult<Vec<u8>> {
         // In a real implementation, this would use proper decryption
         // For now, we'll just extract the private key
@@ -236,8 +240,10 @@ mod tests {
         let wallet_manager = WalletManager::new(config);
         
         // Generate a test keypair
-        let keypair = ed25519_dalek::Keypair::generate(&mut rand::rngs::OsRng);
-        let private_key_hex = hex::encode(keypair.secret.to_bytes());
+        let mut secret_bytes = [0u8; 32];
+        rand::rngs::OsRng.fill_bytes(&mut secret_bytes);
+        let _signing_key = ed25519_dalek::SigningKey::from_bytes(&secret_bytes);
+        let private_key_hex = hex::encode(secret_bytes);
         
         let wallet = wallet_manager.import_wallet(&private_key_hex, "test_password", Some("imported_wallet")).await.unwrap();
         assert_eq!(wallet.name, Some("imported_wallet".to_string()));

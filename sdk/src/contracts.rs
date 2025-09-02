@@ -1,25 +1,25 @@
-use super::{SDKResult, SDKError, SDKConfig, ContractDeployResult, ContractCallResult, TransactionStatus};
+use super::{SDKResult, SDKConfig, ContractDeployResult, ContractCallResult, TransactionStatus};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use sha2::Digest;
 
 /// Contract manager for deploying and calling smart contracts
 pub struct ContractManager {
-    config: SDKConfig,
+    _config: SDKConfig,
 }
 
 impl ContractManager {
     /// Create a new contract manager
     pub fn new(config: SDKConfig) -> Self {
-        Self { config }
+        Self { _config: config }
     }
 
     /// Deploy a smart contract
     pub async fn deploy_contract(
         &self,
-        contract_name: &str,
+        _contract_name: &str,
         contract_code: &[u8],
         sender: &str,
-        password: &str,
+        _password: &str,
         gas_limit: u64,
     ) -> SDKResult<ContractDeployResult> {
         // In a real implementation, this would:
@@ -52,12 +52,12 @@ impl ContractManager {
     /// Call a smart contract
     pub async fn call_contract(
         &self,
-        contract_address: &str,
+        _contract_address: &str,
         method: &str,
         params: &[u8],
         sender: &str,
-        password: &str,
-        amount: Option<f64>,
+        _password: &str,
+        _amount: Option<f64>,
     ) -> SDKResult<ContractCallResult> {
         // In a real implementation, this would:
         // 1. Validate the contract exists
@@ -112,7 +112,7 @@ impl ContractManager {
     }
 
     /// Estimate gas for contract call
-    pub async fn estimate_call_gas(&self, contract_address: &str, method: &str, params: &[u8]) -> SDKResult<u64> {
+    pub async fn estimate_call_gas(&self, _contract_address: &str, method: &str, params: &[u8]) -> SDKResult<u64> {
         // In a real implementation, this would simulate the call
         // For now, we'll use a simple estimation
         let call_data_size = method.len() + params.len();
@@ -137,13 +137,13 @@ impl ContractManager {
         let mut hasher = sha2::Sha256::new();
         hasher.update(data);
         hasher.update(sender.as_bytes());
-        hasher.update(chrono::Utc::now().timestamp_nanos().to_le_bytes());
+        hasher.update(chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0).to_le_bytes());
         let hash = hasher.finalize();
         hex::encode(hash)
     }
 
     /// Simulate contract call
-    fn simulate_contract_call(&self, method: &str, params: &[u8]) -> Vec<u8> {
+    fn simulate_contract_call(&self, method: &str, _params: &[u8]) -> Vec<u8> {
         // In a real implementation, this would execute the contract
         // For now, we'll return mock data based on the method
         match method {

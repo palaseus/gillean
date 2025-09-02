@@ -465,7 +465,7 @@ pub async fn run_doc_tests() -> Result<()> {
     
     // Run documentation tests
     let output = std::process::Command::new("cargo")
-        .args(&["test", "--doc"])
+        .args(["test", "--doc"])
         .output()?;
     
     if output.status.success() {

@@ -346,7 +346,7 @@ impl ShardingSuite {
         assert_eq!(distribution.len(), 3);
         
         // Verify loads are reasonable
-        for (_, load) in &distribution {
+        for load in distribution.values() {
             assert!(*load >= 0.0 && *load <= 1.0);
         }
 
@@ -414,7 +414,7 @@ impl ShardingSuite {
         let avg_load: f64 = final_distribution.values().sum::<f64>() / final_distribution.len() as f64;
         
         // Verify load is more balanced
-        for (_, load) in &final_distribution {
+        for load in final_distribution.values() {
             assert!((*load - avg_load).abs() < 0.3); // Should be more balanced
         }
 
@@ -509,5 +509,48 @@ impl ShardingSuite {
 
         println!("✅ All Advanced Sharding tests passed!");
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sharding_manager_creation() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let _manager = ShardingManager::new(
+            Arc::new(Mutex::new(blockchain)),
+            4
+        );
+        assert!(true); // Basic test to ensure manager can be created
+    }
+
+    #[test]
+    fn test_shard_creation() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let mut manager = ShardingManager::new(
+            Arc::new(Mutex::new(blockchain)),
+            2
+        );
+        
+        let shard_id = manager.add_shard().unwrap();
+        
+        assert!(!shard_id.is_empty());
+        assert!(manager.shards.contains_key(&shard_id));
+    }
+
+    #[test]
+    fn test_transaction_assignment() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let mut manager = ShardingManager::new(
+            Arc::new(Mutex::new(blockchain)),
+            2
+        );
+        
+        let tx = Transaction::new_transfer("alice".to_string(), "bob".to_string(), 10.0, Some("tx".to_string())).unwrap();
+        
+        let result = manager.add_transaction_to_shard("shard_0", tx);
+        assert!(result.is_ok());
     }
 }

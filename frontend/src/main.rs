@@ -1,4 +1,3 @@
-use yew::prelude::*;
 use gloo_console::log;
 
 mod app;

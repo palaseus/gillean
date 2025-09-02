@@ -61,6 +61,8 @@ pub enum BlockchainError {
     InvalidState(String),
     /// Invalid signature
     InvalidSignature(String),
+    /// State corruption detected
+    StateCorruption(String),
 }
 
 impl fmt::Display for BlockchainError {
@@ -103,6 +105,7 @@ impl fmt::Display for BlockchainError {
             BlockchainError::NotFound(msg) => write!(f, "Not found: {}", msg),
             BlockchainError::InvalidState(msg) => write!(f, "Invalid state: {}", msg),
             BlockchainError::InvalidSignature(msg) => write!(f, "Invalid signature: {}", msg),
+            BlockchainError::StateCorruption(msg) => write!(f, "State corruption: {}", msg),
         }
     }
 }

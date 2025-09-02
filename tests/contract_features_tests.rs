@@ -274,7 +274,7 @@ impl ContractManager {
 
         // Register upgrade
         self.upgrade_registry.entry(contract_id.to_string())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(upgrade);
 
         Ok(upgrade_id)
@@ -959,4 +959,55 @@ pub async fn run_contract_features_tests() -> Result<(), String> {
 
     println!("✅ All Contract Features tests completed successfully!");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_contract_manager_creation() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let _manager = ContractManager::new(blockchain);
+        assert!(true); // Basic test to ensure manager can be created
+    }
+
+    #[test]
+    fn test_contract_deployment() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let mut manager = ContractManager::new(blockchain);
+        
+        let contract_id = manager.deploy_contract(
+            "TestContract",
+            ContractType::Standard,
+            "alice",
+            vec![0x60, 0x60],
+            r#"{"functions": [{"name": "test", "inputs": []}]}"#,
+            1000000,
+        ).unwrap();
+        
+        assert!(!contract_id.is_empty());
+        assert!(manager.contracts.contains_key(&contract_id));
+    }
+
+    #[test]
+    fn test_library_deployment() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let mut manager = ContractManager::new(blockchain);
+        
+        let library_functions = vec![
+            LibraryFunction {
+                name: "add".to_string(),
+                signature: "add(uint256,uint256)".to_string(),
+                gas_cost: 1000,
+                parameters: vec!["uint256".to_string(), "uint256".to_string()],
+                return_type: "uint256".to_string(),
+            },
+        ];
+        
+        let library_id = manager.deploy_library("TestLib", library_functions, vec![0x60]).unwrap();
+        
+        assert!(!library_id.is_empty());
+        assert!(manager.libraries.contains_key(&library_id));
+    }
 }

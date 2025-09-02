@@ -750,3 +750,45 @@ impl DIDSuite {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_did_manager_creation() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let _manager = DIDManager::new(Arc::new(Mutex::new(blockchain)));
+        assert!(true); // Basic test to ensure manager can be created
+    }
+
+    #[test]
+    fn test_did_creation() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let mut manager = DIDManager::new(Arc::new(Mutex::new(blockchain)));
+        
+        let did = manager.create_did("alice".to_string()).unwrap();
+        
+        assert!(did.starts_with("did:gillean:"));
+        assert!(manager.did_documents.contains_key(&did));
+    }
+
+    #[test]
+    fn test_verification_method_addition() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let mut manager = DIDManager::new(Arc::new(Mutex::new(blockchain)));
+        
+        let did = manager.create_did("alice".to_string()).unwrap();
+        
+        let result = manager.add_verification_method(
+            &did,
+            "RsaVerificationKey2018".to_string(),
+            "public_key".to_string(),
+        );
+        
+        assert!(result.is_ok());
+        
+        let document = manager.get_did_document(&did).unwrap();
+        assert_eq!(document.verification_methods.len(), 2); // 1 default + 1 added
+    }
+}

@@ -185,7 +185,7 @@ impl GovernanceManager {
         }
 
         // Check if already voted
-        let votes = self.votes.entry(proposal_id.to_string()).or_insert_with(Vec::new);
+        let votes = self.votes.entry(proposal_id.to_string()).or_default();
         if votes.iter().any(|v| v.voter == voter) {
             return Err(BlockchainError::ValidatorError("Already voted on this proposal".to_string()));
         }
@@ -420,6 +420,16 @@ impl GovernanceSuite {
             "alice",
             1500.0,
         )?;
+
+        // Adjust voting period for testing (set voting_start to now)
+        if let Some(proposal) = manager.proposals.get_mut(&proposal_id) {
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+            proposal.voting_start = now;
+            proposal.voting_end = now + 3600; // 1 hour voting period
+        }
 
         // Vote on proposal
         manager.vote(&proposal_id, "alice", VoteType::Yes)?;
@@ -697,4 +707,43 @@ impl GovernanceSuite {
 
     println!("✅ All Governance tests completed successfully!");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_governance_suite() {
+        // Test individual governance functions
+        GovernanceSuite::test_proposal_creation().await.unwrap();
+        GovernanceSuite::test_voting_mechanism().await.unwrap();
+    }
+
+    #[test]
+    fn test_governance_manager_creation() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let manager = GovernanceManager::new(blockchain);
+        
+        assert_eq!(manager.governance_token.symbol, "GOV");
+        assert_eq!(manager.governance_token.total_supply, 1_000_000.0);
+        assert_eq!(manager.min_proposal_deposit, 1000.0); // Fixed: was 100.0, should be 1000.0
+    }
+
+    #[test]
+    fn test_proposal_creation() {
+        let blockchain = Blockchain::new_pow(2, 50.0).unwrap();
+        let mut manager = GovernanceManager::new(blockchain);
+        
+        let proposal_id = manager.create_proposal(
+            "Test Proposal",
+            "Test Description",
+            ProposalType::ParameterChange,
+            "alice",
+            1000.0, // Fixed: was 100.0, needs to meet minimum deposit
+        ).unwrap();
+        
+        assert!(!proposal_id.is_empty());
+        assert!(manager.proposals.contains_key(&proposal_id));
+    }
 }

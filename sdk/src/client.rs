@@ -3,7 +3,6 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tokio::sync::mpsc;
-use url::Url;
 
 /// HTTP client for interacting with Gillean blockchain API
 pub struct GilleanClient {
@@ -120,7 +119,7 @@ impl GilleanClient {
                 Ok(response) => {
                     if response.status().is_success() {
                         let data = response.json::<T>().await
-                            .map_err(|e| SDKError::SerializationError(serde_json::Error::from(e)))?;
+                            .map_err(SDKError::RequestError)?;
                         return Ok(data);
                     } else if response.status().is_client_error() {
                         return Err(SDKError::InvalidInput(format!("Client error: {}", response.status())));
@@ -150,70 +149,7 @@ struct BalanceResponse {
     balance: f64,
 }
 
-/// Transaction information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TransactionInfo {
-    pub hash: String,
-    pub from: String,
-    pub to: String,
-    pub amount: f64,
-    pub timestamp: i64,
-    pub status: String,
-    pub block_number: Option<usize>,
-}
 
-/// Block information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BlockInfo {
-    pub index: usize,
-    pub hash: String,
-    pub previous_hash: String,
-    pub timestamp: i64,
-    pub transactions: Vec<TransactionInfo>,
-    pub nonce: u64,
-    pub difficulty: u32,
-}
-
-/// Shard information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ShardInfo {
-    pub id: usize,
-    pub status: String,
-    pub transaction_count: usize,
-    pub block_count: usize,
-    pub last_block_hash: Option<String>,
-}
-
-/// Bridge status
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BridgeStatus {
-    pub is_active: bool,
-    pub total_transfers: usize,
-    pub pending_transfers: usize,
-    pub last_transfer_timestamp: Option<i64>,
-}
-
-/// Contract information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContractInfo {
-    pub address: String,
-    pub name: String,
-    pub code_hash: String,
-    pub deployed_at: i64,
-    pub call_count: usize,
-    pub balance: f64,
-}
-
-/// Metrics data
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MetricsData {
-    pub total_blocks: usize,
-    pub total_transactions: usize,
-    pub pending_transactions: usize,
-    pub average_block_time: f64,
-    pub transaction_per_second: f64,
-    pub active_shards: usize,
-}
 
 #[cfg(test)]
 mod tests {
@@ -228,9 +164,8 @@ mod tests {
 
     #[test]
     fn test_balance_response_deserialization() {
-        let json = r#"{"balance": 100.5, "address": "alice", "timestamp": 1234567890}"#;
+        let json = r#"{"balance": 100.5}"#;
         let response: BalanceResponse = serde_json::from_str(json).unwrap();
         assert_eq!(response.balance, 100.5);
-        assert_eq!(response.address, "alice");
     }
 }

@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use log::{debug, info, warn, error};
-use rand::Rng;
+// Removed unused import
 use chrono::Utc;
 use crate::{Result, BlockchainError, crypto::DigitalSignature};
+use sha2::{Sha256, Digest};
 
 /// Consensus mechanism types
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -42,6 +43,16 @@ pub struct Validator {
     pub blocks_validated: u64,
     /// Number of validation failures
     pub validation_failures: u64,
+    /// Number of times validator has been slashed
+    pub slash_count: u64,
+    /// Last slashing timestamp
+    pub last_slash_time: Option<i64>,
+    /// Validator's reputation score (0.0 to 1.0)
+    pub reputation_score: f64,
+    /// Whether validator is jailed (temporarily inactive)
+    pub jailed: bool,
+    /// Jail end timestamp
+    pub jail_end_time: Option<i64>,
 }
 
 /// Proof-of-Stake consensus implementation
@@ -63,6 +74,18 @@ pub struct ProofOfStake {
     pub staking_reward_rate: f64,
     /// Slashing penalty rate (percentage of stake)
     pub slashing_penalty_rate: f64,
+    /// Finality threshold (percentage of validators needed for finality)
+    pub finality_threshold: f64,
+    /// Jail duration in seconds
+    pub jail_duration: u64,
+    /// Pending slashing evidence
+    pub pending_slashings: Vec<SlashingEvidence>,
+    /// Finalized blocks
+    pub finalized_blocks: HashSet<String>,
+    /// Current epoch info
+    pub current_epoch_info: Option<EpochInfo>,
+    /// Validator selection seed for current epoch
+    pub selection_seed: String,
 }
 
 /// Block validation result for PoS
@@ -97,6 +120,64 @@ pub struct StakingTransaction {
     pub is_stake: bool,
 }
 
+/// Finality proof for a block
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FinalityProof {
+    /// Block hash
+    pub block_hash: String,
+    /// Validator signatures
+    pub signatures: Vec<DigitalSignature>,
+    /// Validator addresses that signed
+    pub signers: Vec<String>,
+    /// Finality timestamp
+    pub timestamp: i64,
+    /// Epoch number
+    pub epoch: u64,
+}
+
+/// Slashing evidence
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SlashingEvidence {
+    /// Validator address
+    pub validator_address: String,
+    /// Type of slashing offense
+    pub offense_type: SlashingOffense,
+    /// Evidence data
+    pub evidence: String,
+    /// Reporter address
+    pub reporter: String,
+    /// Timestamp
+    pub timestamp: i64,
+}
+
+/// Types of slashing offenses
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum SlashingOffense {
+    /// Double signing (signing two different blocks at same height)
+    DoubleSigning,
+    /// Liveness failure (not producing blocks when selected)
+    LivenessFailure,
+    /// Invalid block production
+    InvalidBlock,
+    /// Unavailability (not responding to challenges)
+    Unavailability,
+}
+
+/// Epoch information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EpochInfo {
+    /// Epoch number
+    pub epoch: u64,
+    /// Start timestamp
+    pub start_time: i64,
+    /// End timestamp
+    pub end_time: i64,
+    /// Validators in this epoch
+    pub validators: Vec<String>,
+    /// Epoch hash (for deterministic selection)
+    pub epoch_hash: String,
+}
+
 impl Validator {
     /// Create a new validator
     pub fn new(public_key: String, address: String, stake_amount: f64) -> Self {
@@ -109,6 +190,11 @@ impl Validator {
             performance_score: 1.0,
             blocks_validated: 0,
             validation_failures: 0,
+            slash_count: 0,
+            last_slash_time: None,
+            reputation_score: 1.0,
+            jailed: false,
+            jail_end_time: None,
         }
     }
 
@@ -127,7 +213,24 @@ impl Validator {
 
     /// Calculate validator's weight for selection
     pub fn calculate_weight(&self) -> f64 {
-        self.stake_amount * self.performance_score
+        if self.jailed || !self.active {
+            return 0.0;
+        }
+        self.stake_amount * self.performance_score * self.reputation_score
+    }
+
+    /// Check if validator is eligible for selection
+    pub fn is_eligible(&self) -> bool {
+        self.active && !self.jailed && self.stake_amount > 0.0
+    }
+
+    /// Update reputation score based on behavior
+    pub fn update_reputation(&mut self, positive: bool) {
+        if positive {
+            self.reputation_score = (self.reputation_score + 0.01).min(1.0);
+        } else {
+            self.reputation_score = (self.reputation_score - 0.05).max(0.0);
+        }
     }
 
     /// Add stake to validator
@@ -196,6 +299,12 @@ impl ProofOfStake {
             last_epoch_change: Utc::now().timestamp(),
             staking_reward_rate,
             slashing_penalty_rate,
+            finality_threshold: 0.67, // 2/3 of validators
+            jail_duration: 86400, // 24 hours
+            pending_slashings: Vec::new(),
+            finalized_blocks: HashSet::new(),
+            current_epoch_info: None,
+            selection_seed: String::new(),
         };
 
         info!("Created Proof-of-Stake consensus with min_stake={}, max_validators={}", 
@@ -243,7 +352,7 @@ impl ProofOfStake {
         Ok(())
     }
 
-    /// Select the next validator for block creation
+    /// Select the next validator for block creation using secure deterministic selection
     /// 
     /// # Arguments
     /// * `block_height` - Current block height
@@ -256,13 +365,29 @@ impl ProofOfStake {
             return None;
         }
 
-        // Create a deterministic seed based on block height and previous hash
-        let _seed = format!("{}{}", block_height, previous_block_hash);
-        let mut rng = rand::thread_rng();
+        // Create deterministic seed using block height, previous hash, and epoch
+        let seed_data = format!("{}{}{}{}", block_height, previous_block_hash, self.current_epoch, self.selection_seed);
+        let mut hasher = Sha256::new();
+        hasher.update(seed_data.as_bytes());
+        let seed_hash = hasher.finalize();
         
-        // Calculate total weight of all validators
-        let total_weight: f64 = self.validators.values()
-            .filter(|v| v.active)
+        // Convert hash to deterministic "random" value
+        let seed_value = u64::from_le_bytes([
+            seed_hash[0], seed_hash[1], seed_hash[2], seed_hash[3],
+            seed_hash[4], seed_hash[5], seed_hash[6], seed_hash[7],
+        ]);
+        
+        // Get eligible validators (active, not jailed, with stake)
+        let eligible_validators: Vec<&Validator> = self.validators.values()
+            .filter(|v| v.is_eligible())
+            .collect();
+
+        if eligible_validators.is_empty() {
+            return None;
+        }
+
+        // Calculate total weight of eligible validators
+        let total_weight: f64 = eligible_validators.iter()
             .map(|v| v.calculate_weight())
             .sum();
 
@@ -270,25 +395,19 @@ impl ProofOfStake {
             return None;
         }
 
-        // Use weighted random selection
-        let mut random_value = rng.gen::<f64>() * total_weight;
+        // Use deterministic weighted selection
+        let mut selection_value = (seed_value as f64 / u64::MAX as f64) * total_weight;
         
-        for validator in self.validators.values() {
-            if !validator.active {
-                continue;
-            }
-            
+        for validator in &eligible_validators {
             let weight = validator.calculate_weight();
-            if random_value <= weight {
+            if selection_value <= weight {
                 return Some(validator.address.clone());
             }
-            random_value -= weight;
+            selection_value -= weight;
         }
 
-        // Fallback to first active validator
-        self.validators.values()
-            .find(|v| v.active)
-            .map(|v| v.address.clone())
+        // Fallback to first eligible validator
+        eligible_validators.first().map(|v| v.address.clone())
     }
 
     /// Validate a block using PoS consensus
@@ -414,36 +533,226 @@ impl ProofOfStake {
         rewards
     }
 
-    /// Slash a validator for misbehavior
+    /// Slash a validator for misbehavior with enhanced security
     /// 
     /// # Arguments
     /// * `validator_address` - Address of the validator to slash
-    /// * `reason` - Reason for slashing
+    /// * `evidence` - Slashing evidence
     /// 
     /// # Returns
     /// * `Result<f64>` - Amount slashed or error
-    pub fn slash_validator(&mut self, validator_address: &str, reason: &str) -> Result<f64> {
-        let validator = self.validators.get_mut(validator_address)
+    pub fn slash_validator(&mut self, evidence: SlashingEvidence) -> Result<f64> {
+        let validator = self.validators.get_mut(&evidence.validator_address)
             .ok_or_else(|| BlockchainError::ConsensusError(
                 "Validator not found".to_string(),
             ))?;
 
-        let slash_amount = validator.stake_amount * (self.slashing_penalty_rate / 100.0);
-        validator.stake_amount -= slash_amount;
-        validator.performance_score = 0.0; // Reset performance
-        validator.active = false; // Deactivate validator
+        // Calculate slash amount based on offense type
+        let slash_percentage = match evidence.offense_type {
+            SlashingOffense::DoubleSigning => 0.5, // 50% for double signing
+            SlashingOffense::LivenessFailure => 0.01, // 1% for liveness failure
+            SlashingOffense::InvalidBlock => 0.1, // 10% for invalid blocks
+            SlashingOffense::Unavailability => 0.05, // 5% for unavailability
+        };
 
-        error!("Slashed validator {}: {} (amount: {})", validator_address, reason, slash_amount);
+        let slash_amount = validator.stake_amount * slash_percentage;
+        validator.stake_amount -= slash_amount;
+        validator.slash_count += 1;
+        validator.last_slash_time = Some(evidence.timestamp);
+        
+        // Update reputation and performance
+        validator.reputation_score = 0.0; // Reset reputation
+        validator.performance_score = (validator.performance_score * 0.5).max(0.1);
+        
+        // Jail validator for serious offenses
+        if matches!(evidence.offense_type, SlashingOffense::DoubleSigning | SlashingOffense::InvalidBlock) {
+            validator.jailed = true;
+            validator.jail_end_time = Some(evidence.timestamp + self.jail_duration as i64);
+            validator.active = false;
+        }
+
+        // Deactivate if stake drops below minimum
+        if validator.stake_amount < self.min_stake {
+            validator.active = false;
+        }
+
+        error!("Slashed validator {}: {:?} (amount: {}, slash_count: {})", 
+               evidence.validator_address, evidence.offense_type, slash_amount, validator.slash_count);
+        
         Ok(slash_amount)
     }
 
-    /// Update epoch if needed
+    /// Submit slashing evidence
+    /// 
+    /// # Arguments
+    /// * `evidence` - Slashing evidence to submit
+    /// 
+    /// # Returns
+    /// * `Result<()>` - Ok if submitted successfully
+    pub fn submit_slashing_evidence(&mut self, evidence: SlashingEvidence) -> Result<()> {
+        // Validate evidence
+        if evidence.validator_address.is_empty() || evidence.evidence.is_empty() {
+            return Err(BlockchainError::ConsensusError(
+                "Invalid slashing evidence".to_string(),
+            ));
+        }
+
+        // Check if validator exists
+        if !self.validators.contains_key(&evidence.validator_address) {
+            return Err(BlockchainError::ConsensusError(
+                "Validator not found".to_string(),
+            ));
+        }
+
+        // Add to pending slashings
+        let validator_address = evidence.validator_address.clone();
+        self.pending_slashings.push(evidence);
+        
+        info!("Submitted slashing evidence for validator: {}", validator_address);
+        Ok(())
+    }
+
+    /// Process pending slashing evidence
+    /// 
+    /// # Returns
+    /// * `Result<Vec<f64>>` - List of slash amounts
+    pub fn process_pending_slashings(&mut self) -> Result<Vec<f64>> {
+        let mut slash_amounts = Vec::new();
+        let mut processed_validators = Vec::new();
+
+        // Clone the evidence to avoid borrowing issues
+        let evidence_to_process: Vec<SlashingEvidence> = self.pending_slashings.clone();
+
+        for evidence in evidence_to_process {
+            match self.slash_validator(evidence.clone()) {
+                Ok(amount) => {
+                    slash_amounts.push(amount);
+                    processed_validators.push(evidence.validator_address);
+                }
+                Err(e) => {
+                    warn!("Failed to process slashing evidence: {}", e);
+                }
+            }
+        }
+
+        // Remove processed evidence
+        for validator_address in processed_validators {
+            self.pending_slashings.retain(|e| e.validator_address != validator_address);
+        }
+
+        Ok(slash_amounts)
+    }
+
+    /// Update epoch if needed and generate new selection seed
     pub fn update_epoch(&mut self) {
         let current_time = Utc::now().timestamp();
         if current_time - self.last_epoch_change >= self.epoch_duration as i64 {
             self.current_epoch += 1;
             self.last_epoch_change = current_time;
-            info!("Advanced to epoch {}", self.current_epoch);
+            
+            // Generate new selection seed for deterministic validator selection
+            let mut hasher = Sha256::new();
+            hasher.update(self.current_epoch.to_string().as_bytes());
+            hasher.update(current_time.to_string().as_bytes());
+            hasher.update("epoch_seed".as_bytes());
+            self.selection_seed = format!("{:x}", hasher.finalize());
+            
+            // Create epoch info
+            self.current_epoch_info = Some(EpochInfo {
+                epoch: self.current_epoch,
+                start_time: current_time,
+                end_time: current_time + self.epoch_duration as i64,
+                validators: self.validators.keys().cloned().collect(),
+                epoch_hash: self.selection_seed.clone(),
+            });
+            
+            info!("Advanced to epoch {} with seed: {}", self.current_epoch, self.selection_seed);
+        }
+    }
+
+    /// Finalize a block with validator signatures
+    /// 
+    /// # Arguments
+    /// * `block_hash` - Hash of the block to finalize
+    /// * `signatures` - Validator signatures
+    /// * `signers` - Validator addresses that signed
+    /// 
+    /// # Returns
+    /// * `Result<FinalityProof>` - Finality proof or error
+    pub fn finalize_block(
+        &mut self,
+        block_hash: String,
+        signatures: Vec<DigitalSignature>,
+        signers: Vec<String>,
+    ) -> Result<FinalityProof> {
+        // Check if we have enough signatures for finality
+        let total_validators = self.validators.len();
+        let required_signatures = (total_validators as f64 * self.finality_threshold).ceil() as usize;
+        
+        if signatures.len() < required_signatures {
+            return Err(BlockchainError::ConsensusError(
+                format!("Insufficient signatures for finality: {} < {}", signatures.len(), required_signatures),
+            ));
+        }
+
+        // Validate that all signers are valid validators
+        for signer in &signers {
+            if !self.validators.contains_key(signer) {
+                return Err(BlockchainError::ConsensusError(
+                    format!("Invalid validator signer: {}", signer),
+                ));
+            }
+        }
+
+        let finality_proof = FinalityProof {
+            block_hash: block_hash.clone(),
+            signatures,
+            signers,
+            timestamp: Utc::now().timestamp(),
+            epoch: self.current_epoch,
+        };
+
+        // Mark block as finalized
+        let block_hash_clone = block_hash.clone();
+        self.finalized_blocks.insert(block_hash);
+        
+        info!("Block {} finalized with {} signatures", block_hash_clone, finality_proof.signatures.len());
+        Ok(finality_proof)
+    }
+
+    /// Check if a block is finalized
+    /// 
+    /// # Arguments
+    /// * `block_hash` - Hash of the block to check
+    /// 
+    /// # Returns
+    /// * `bool` - True if block is finalized
+    pub fn is_block_finalized(&self, block_hash: &str) -> bool {
+        self.finalized_blocks.contains(block_hash)
+    }
+
+    /// Unjail validators whose jail period has expired
+    pub fn unjail_validators(&mut self) {
+        let current_time = Utc::now().timestamp();
+        let mut unjailed_count = 0;
+
+        for validator in self.validators.values_mut() {
+            if validator.jailed {
+                if let Some(jail_end_time) = validator.jail_end_time {
+                    if current_time >= jail_end_time {
+                        validator.jailed = false;
+                        validator.jail_end_time = None;
+                        validator.active = true;
+                        unjailed_count += 1;
+                        
+                        info!("Unjailed validator: {}", validator.address);
+                    }
+                }
+            }
+        }
+
+        if unjailed_count > 0 {
+            info!("Unjailed {} validators", unjailed_count);
         }
     }
 
@@ -454,11 +763,20 @@ impl ProofOfStake {
         stats.insert("total_validators".to_string(), self.validators.len() as f64);
         stats.insert("active_validators".to_string(), 
                     self.validators.values().filter(|v| v.active).count() as f64);
+        stats.insert("jailed_validators".to_string(), 
+                    self.validators.values().filter(|v| v.jailed).count() as f64);
         stats.insert("total_stake".to_string(), 
                     self.validators.values().map(|v| v.stake_amount).sum());
         stats.insert("average_performance".to_string(), 
                     self.validators.values().map(|v| v.performance_score).sum::<f64>() / 
                     self.validators.len().max(1) as f64);
+        stats.insert("average_reputation".to_string(), 
+                    self.validators.values().map(|v| v.reputation_score).sum::<f64>() / 
+                    self.validators.len().max(1) as f64);
+        stats.insert("total_slashings".to_string(), 
+                    self.validators.values().map(|v| v.slash_count as f64).sum());
+        stats.insert("finalized_blocks".to_string(), self.finalized_blocks.len() as f64);
+        stats.insert("pending_slashings".to_string(), self.pending_slashings.len() as f64);
         
         stats
     }
@@ -518,6 +836,7 @@ mod tests {
         assert_eq!(pos.min_stake, 1000.0);
         assert_eq!(pos.max_validators, 10);
         assert_eq!(pos.staking_reward_rate, 5.0);
+        assert_eq!(pos.finality_threshold, 0.67);
     }
 
     #[test]
@@ -532,10 +851,14 @@ mod tests {
 
         assert_eq!(pos.validators.len(), 1);
         assert!(pos.validators.contains_key("validator1"));
+        
+        let validator = &pos.validators["validator1"];
+        assert_eq!(validator.reputation_score, 1.0);
+        assert!(!validator.jailed);
     }
 
     #[test]
-    fn test_validator_selection() {
+    fn test_deterministic_validator_selection() {
         let mut pos = ProofOfStake::new(1000.0, 10, 5.0, 10.0).unwrap();
         
         pos.register_validator(
@@ -550,9 +873,121 @@ mod tests {
             3000.0,
         ).unwrap();
 
-        let selected = pos.select_validator(1, "prev_hash");
-        assert!(selected.is_some());
-        assert!(pos.validators.contains_key(&selected.unwrap()));
+        // Test deterministic selection - same inputs should produce same result
+        let selected1 = pos.select_validator(1, "prev_hash");
+        let selected2 = pos.select_validator(1, "prev_hash");
+        assert_eq!(selected1, selected2);
+        
+        assert!(selected1.is_some());
+        assert!(pos.validators.contains_key(&selected1.unwrap()));
+    }
+
+    #[test]
+    fn test_slashing_mechanisms() {
+        let mut pos = ProofOfStake::new(1000.0, 10, 5.0, 10.0).unwrap();
+        
+        pos.register_validator(
+            "pubkey1".to_string(),
+            "validator1".to_string(),
+            2000.0,
+        ).unwrap();
+
+        let evidence = SlashingEvidence {
+            validator_address: "validator1".to_string(),
+            offense_type: SlashingOffense::DoubleSigning,
+            evidence: "double_signature_proof".to_string(),
+            reporter: "reporter1".to_string(),
+            timestamp: Utc::now().timestamp(),
+        };
+
+        let slash_amount = pos.slash_validator(evidence).unwrap();
+        assert!(slash_amount > 0.0);
+        
+        let validator = &pos.validators["validator1"];
+        assert!(validator.jailed);
+        assert!(!validator.active);
+        assert_eq!(validator.reputation_score, 0.0);
+        assert_eq!(validator.slash_count, 1);
+    }
+
+    #[test]
+    fn test_finality_mechanisms() {
+        let mut pos = ProofOfStake::new(1000.0, 10, 5.0, 10.0).unwrap();
+        
+        // Register validators
+        for i in 1..=5 {
+            pos.register_validator(
+                format!("pubkey{}", i),
+                format!("validator{}", i),
+                1000.0,
+            ).unwrap();
+        }
+
+        let block_hash = "test_block_hash".to_string();
+        let signatures = vec![
+            DigitalSignature { signature: vec![1, 2, 3], public_key: vec![1, 2, 3, 4] },
+            DigitalSignature { signature: vec![4, 5, 6], public_key: vec![5, 6, 7, 8] },
+            DigitalSignature { signature: vec![7, 8, 9], public_key: vec![9, 10, 11, 12] },
+            DigitalSignature { signature: vec![10, 11, 12], public_key: vec![13, 14, 15, 16] },
+        ];
+        let signers = vec![
+            "validator1".to_string(),
+            "validator2".to_string(),
+            "validator3".to_string(),
+            "validator4".to_string(),
+        ];
+
+        let finality_proof = pos.finalize_block(block_hash.clone(), signatures, signers).unwrap();
+        assert_eq!(finality_proof.block_hash, block_hash);
+        assert_eq!(finality_proof.signatures.len(), 4);
+        
+        assert!(pos.is_block_finalized(&block_hash));
+    }
+
+    #[test]
+    fn test_epoch_management() {
+        let mut pos = ProofOfStake::new(1000.0, 10, 5.0, 10.0).unwrap();
+        
+        let initial_epoch = pos.current_epoch;
+        pos.update_epoch();
+        
+        // Epoch shouldn't change immediately
+        assert_eq!(pos.current_epoch, initial_epoch);
+        
+        // Test epoch info creation
+        assert!(pos.current_epoch_info.is_none());
+    }
+
+    #[test]
+    fn test_validator_jailing_and_unjailing() {
+        let mut pos = ProofOfStake::new(1000.0, 10, 5.0, 10.0).unwrap();
+        
+        pos.register_validator(
+            "pubkey1".to_string(),
+            "validator1".to_string(),
+            2000.0,
+        ).unwrap();
+
+        // Jail validator
+        let evidence = SlashingEvidence {
+            validator_address: "validator1".to_string(),
+            offense_type: SlashingOffense::InvalidBlock,
+            evidence: "invalid_block_proof".to_string(),
+            reporter: "reporter1".to_string(),
+            timestamp: Utc::now().timestamp(),
+        };
+
+        pos.slash_validator(evidence).unwrap();
+        
+        let validator = &pos.validators["validator1"];
+        assert!(validator.jailed);
+        assert!(!validator.active);
+        
+        // Test unjailing (would need to manipulate time in real implementation)
+        pos.unjail_validators();
+        // Validator should still be jailed since jail period hasn't expired
+        let validator = &pos.validators["validator1"];
+        assert!(validator.jailed);
     }
 
     #[test]
@@ -566,5 +1001,57 @@ mod tests {
         assert_eq!(staking_tx.validator_address, "validator1");
         assert_eq!(staking_tx.stake_amount, 1000.0);
         assert!(staking_tx.is_stake);
+        assert!(!staking_tx.id.is_empty());
+    }
+
+    #[test]
+    fn test_validator_eligibility() {
+        let mut pos = ProofOfStake::new(1000.0, 10, 5.0, 10.0).unwrap();
+        
+        pos.register_validator(
+            "pubkey1".to_string(),
+            "validator1".to_string(),
+            2000.0,
+        ).unwrap();
+
+        let validator = &pos.validators["validator1"];
+        assert!(validator.is_eligible());
+        
+        // Test jailed validator
+        let evidence = SlashingEvidence {
+            validator_address: "validator1".to_string(),
+            offense_type: SlashingOffense::DoubleSigning,
+            evidence: "proof".to_string(),
+            reporter: "reporter".to_string(),
+            timestamp: Utc::now().timestamp(),
+        };
+        
+        pos.slash_validator(evidence).unwrap();
+        let validator = &pos.validators["validator1"];
+        assert!(!validator.is_eligible());
+    }
+
+    #[test]
+    fn test_validator_statistics() {
+        let mut pos = ProofOfStake::new(1000.0, 10, 5.0, 10.0).unwrap();
+        
+        pos.register_validator(
+            "pubkey1".to_string(),
+            "validator1".to_string(),
+            2000.0,
+        ).unwrap();
+
+        pos.register_validator(
+            "pubkey2".to_string(),
+            "validator2".to_string(),
+            3000.0,
+        ).unwrap();
+
+        let stats = pos.get_validator_stats();
+        assert_eq!(stats["total_validators"], 2.0);
+        assert_eq!(stats["active_validators"], 2.0);
+        assert_eq!(stats["jailed_validators"], 0.0);
+        assert_eq!(stats["total_stake"], 5000.0);
+        assert_eq!(stats["finalized_blocks"], 0.0);
     }
 }

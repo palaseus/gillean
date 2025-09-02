@@ -1,38 +1,5 @@
 use yew::prelude::*;
-use gloo_net::http::Request;
-use serde::{Deserialize, Serialize};
-use crate::api::BlockchainApi;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct Block {
-    index: u64,
-    timestamp: i64,
-    hash: String,
-    previous_hash: String,
-    transactions: Vec<Transaction>,
-    nonce: u64,
-    consensus_type: String,
-    validator: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct Transaction {
-    id: String,
-    transaction_type: String,
-    sender: String,
-    receiver: String,
-    amount: f64,
-    timestamp: i64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct BlockchainStatus {
-    blocks: Vec<Block>,
-    pending_transactions: Vec<Transaction>,
-    consensus_type: String,
-    difficulty: u32,
-    mining_reward: f64,
-}
+use crate::api::{BlockchainApi, BlockchainStatus};
 
 #[function_component(BlockchainView)]
 pub fn blockchain_view() -> Html {
@@ -139,7 +106,7 @@ pub fn blockchain_view() -> Html {
                         <div class="transactions-list">
                             {blockchain_status.pending_transactions.iter().map(|tx| {
                                 html! {
-                                    <div class="transaction-item" key={&tx.id}>
+                                    <div class="transaction-item" key={&*tx.id}>
                                         <div class="tx-header">
                                             <span class="tx-type">{&tx.transaction_type}</span>
                                             <span class="tx-amount">{tx.amount}</span>

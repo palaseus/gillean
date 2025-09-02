@@ -1,11 +1,12 @@
 use crate::{Blockchain, Block, Transaction, BlockchainError};
-// use crate::Result; // Unused import
 use sled::{Db, Tree};
 use serde::{Serialize, Deserialize};
-use log::{info, error, debug};
+use log::{info, error, debug, warn};
 use std::path::Path;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
+use sha2::{Sha256, Digest};
 use thiserror::Error;
 
 /// Storage-related errors
@@ -25,6 +26,21 @@ pub enum StorageError {
     
     #[error("Invalid data format: {0}")]
     InvalidFormat(String),
+    
+    #[error("Data integrity check failed: {0}")]
+    IntegrityCheckFailed(String),
+    
+    #[error("Backup operation failed: {0}")]
+    BackupFailed(String),
+    
+    #[error("Recovery operation failed: {0}")]
+    RecoveryFailed(String),
+    
+    #[error("Health check failed: {0}")]
+    HealthCheckFailed(String),
+    
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
 }
 
 impl From<StorageError> for BlockchainError {
@@ -44,6 +60,72 @@ pub struct BlockchainMetadata {
     pub last_block_hash: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub last_updated: chrono::DateTime<chrono::Utc>,
+    pub integrity_hash: String,
+    pub backup_count: u32,
+    pub last_backup: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+/// Data integrity check result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntegrityCheckResult {
+    pub is_valid: bool,
+    pub checksum: String,
+    pub block_count: usize,
+    pub transaction_count: usize,
+    pub corrupted_blocks: Vec<u64>,
+    pub corrupted_transactions: Vec<String>,
+    pub checked_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// Backup information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupInfo {
+    pub backup_id: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub size_bytes: u64,
+    pub block_count: usize,
+    pub transaction_count: usize,
+    pub integrity_hash: String,
+    pub backup_type: BackupType,
+}
+
+/// Backup type enumeration
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum BackupType {
+    Full,
+    Incremental,
+    Differential,
+}
+
+/// Storage health status
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StorageHealth {
+    pub is_healthy: bool,
+    pub disk_usage_percent: f64,
+    pub available_space_bytes: u64,
+    pub last_integrity_check: Option<chrono::DateTime<chrono::Utc>>,
+    pub corruption_detected: bool,
+    pub backup_status: BackupStatus,
+    pub performance_metrics: PerformanceMetrics,
+}
+
+/// Backup status
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum BackupStatus {
+    UpToDate,
+    Outdated,
+    Failed,
+    InProgress,
+}
+
+/// Performance metrics for storage
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceMetrics {
+    pub read_operations_per_second: f64,
+    pub write_operations_per_second: f64,
+    pub average_read_latency_ms: f64,
+    pub average_write_latency_ms: f64,
+    pub cache_hit_rate: f64,
 }
 
 /// Persistent storage for the blockchain using sled
@@ -55,6 +137,12 @@ pub struct BlockchainStorage {
     balances_tree: Tree,
     metadata_tree: Tree,
     wallets_tree: Tree,
+    backups_tree: Tree,
+    integrity_tree: Tree,
+    backup_path: String,
+    db_path: String,
+    #[allow(dead_code)]
+    last_integrity_check: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 impl BlockchainStorage {
@@ -66,15 +154,37 @@ impl BlockchainStorage {
     /// # Returns
     /// * `Result<BlockchainStorage>` - The storage instance or an error
     pub fn new<P: AsRef<Path>>(path: P) -> std::result::Result<Self, StorageError> {
-        let db = Arc::new(sled::open(path)?);
+        let path_str = path.as_ref().to_string_lossy().to_string();
+        
+        // Try to open the database with retry logic
+        let db = Arc::new({
+            let mut attempts = 0;
+            let max_attempts = 5;
+            
+            loop {
+                match sled::open(&path) {
+                    Ok(db) => break db,
+                    Err(e) => {
+                        attempts += 1;
+                        if attempts >= max_attempts {
+                            return Err(StorageError::Database(e));
+                        }
+                        info!("Database lock attempt {} failed, retrying...", attempts);
+                        std::thread::sleep(std::time::Duration::from_millis(500));
+                    }
+                }
+            }
+        });
         
         let blocks_tree = db.open_tree("blocks")?;
         let transactions_tree = db.open_tree("transactions")?;
         let balances_tree = db.open_tree("balances")?;
         let metadata_tree = db.open_tree("metadata")?;
         let wallets_tree = db.open_tree("wallets")?;
+        let backups_tree = db.open_tree("backups")?;
+        let integrity_tree = db.open_tree("integrity")?;
         
-        info!("Initialized blockchain storage");
+        info!("Initialized blockchain storage with enhanced features");
         
         Ok(BlockchainStorage {
             db,
@@ -83,6 +193,11 @@ impl BlockchainStorage {
             balances_tree,
             metadata_tree,
             wallets_tree,
+            backups_tree,
+            integrity_tree,
+            backup_path: format!("{}/backups", path_str),
+            db_path: path_str,
+            last_integrity_check: None,
         })
     }
     
@@ -104,10 +219,13 @@ impl BlockchainStorage {
             last_block_hash: crate::GENESIS_HASH.to_string(),
             created_at: chrono::Utc::now(),
             last_updated: chrono::Utc::now(),
+            integrity_hash: "".to_string(),
+            backup_count: 0,
+            last_backup: None,
         };
         
         self.save_metadata(&metadata)?;
-        info!("Initialized blockchain metadata");
+        info!("Initialized blockchain metadata with integrity tracking");
         Ok(())
     }
     
@@ -384,6 +502,9 @@ impl BlockchainStorage {
             proof_of_stake: None, // Default to None for backward compatibility
             contracts: HashMap::new(), // Default to empty for backward compatibility
             contract_metrics: HashMap::new(), // Default to empty for backward compatibility
+            state_snapshots: Vec::new(), // Default to empty for backward compatibility
+            state_tree: crate::blockchain::StateMerkleTree::new(), // Default to empty for backward compatibility
+            state_lock: std::sync::Arc::new(std::sync::Mutex::new(())), // Default to new lock
         };
         
         info!("Successfully loaded blockchain from storage");
@@ -417,6 +538,9 @@ impl BlockchainStorage {
             last_block_hash: blockchain.blocks.last().map(|b| b.hash.clone()).unwrap_or_default(),
             created_at: chrono::Utc::now(), // This should be preserved from original metadata
             last_updated: chrono::Utc::now(),
+            integrity_hash: "".to_string(),
+            backup_count: 0,
+            last_backup: None,
         };
         
         self.save_metadata(&metadata)?;
@@ -509,6 +633,360 @@ impl BlockchainStorage {
     pub fn delete(&self, key: &str) -> std::result::Result<(), StorageError> {
         self.blocks_tree.remove(key)?;
         self.flush()?;
+        Ok(())
+    }
+
+    /// Perform comprehensive data integrity check
+    /// 
+    /// # Returns
+    /// * `Result<IntegrityCheckResult>` - Integrity check results
+    pub fn perform_integrity_check(&self) -> std::result::Result<IntegrityCheckResult, StorageError> {
+        info!("Starting comprehensive data integrity check");
+        let start_time = SystemTime::now();
+        
+        let mut corrupted_blocks = Vec::new();
+        let mut corrupted_transactions = Vec::new();
+        let mut block_count = 0;
+        let mut transaction_count = 0;
+        let mut hasher = Sha256::new();
+        
+        // Check all blocks
+        for result in self.blocks_tree.iter() {
+            let (key, value) = result?;
+            let block_index = String::from_utf8_lossy(&key);
+            
+            // Try to deserialize the block
+            match serde_json::from_slice::<Block>(&value) {
+                Ok(block) => {
+                    block_count += 1;
+                    // Verify block hash
+                    let computed_hash = block.calculate_current_hash();
+                    if computed_hash != block.hash {
+                        warn!("Block {} has invalid hash", block.index);
+                        corrupted_blocks.push(block.index);
+                    }
+                    
+                    // Add to integrity hash
+                    hasher.update(&value);
+                    transaction_count += block.transactions.len();
+                }
+                Err(e) => {
+                    error!("Failed to deserialize block {}: {}", block_index, e);
+                    if let Ok(index) = block_index.parse::<u64>() {
+                        corrupted_blocks.push(index);
+                    }
+                }
+            }
+        }
+        
+        // Check all transactions
+        for result in self.transactions_tree.iter() {
+            let (key, value) = result?;
+            let tx_id = String::from_utf8_lossy(&key);
+            
+            match serde_json::from_slice::<Transaction>(&value) {
+                Ok(transaction) => {
+                    // Verify transaction ID is not empty
+                    if transaction.id.is_empty() {
+                        warn!("Transaction has empty ID");
+                        corrupted_transactions.push(tx_id.to_string());
+                    }
+                    
+                    // Add to integrity hash
+                    hasher.update(&value);
+                }
+                Err(e) => {
+                    error!("Failed to deserialize transaction {}: {}", tx_id, e);
+                    corrupted_transactions.push(tx_id.to_string());
+                }
+            }
+        }
+        
+        // Check balances
+        for result in self.balances_tree.iter() {
+            let (_, value) = result?;
+            hasher.update(&value);
+        }
+        
+        let checksum = format!("{:x}", hasher.finalize());
+        let is_valid = corrupted_blocks.is_empty() && corrupted_transactions.is_empty();
+        
+        let result = IntegrityCheckResult {
+            is_valid,
+            checksum,
+            block_count,
+            transaction_count,
+            corrupted_blocks,
+            corrupted_transactions,
+            checked_at: chrono::Utc::now(),
+        };
+        
+        // Store integrity check result
+        self.integrity_tree.insert("last_check", serde_json::to_vec(&result)?)?;
+        self.flush()?;
+        
+        let duration = start_time.elapsed().unwrap_or_default();
+        info!("Integrity check completed in {:?}. Valid: {}, Blocks: {}, Transactions: {}", 
+              duration, is_valid, block_count, transaction_count);
+        
+        if !is_valid {
+            warn!("Data integrity issues detected: {} corrupted blocks, {} corrupted transactions", 
+                  result.corrupted_blocks.len(), result.corrupted_transactions.len());
+        }
+        
+        Ok(result)
+    }
+
+    /// Create a backup of the blockchain data
+    /// 
+    /// # Arguments
+    /// * `backup_type` - Type of backup to create
+    /// 
+    /// # Returns
+    /// * `Result<BackupInfo>` - Information about the created backup
+    pub fn create_backup(&self, backup_type: BackupType) -> std::result::Result<BackupInfo, StorageError> {
+        info!("Creating {:?} backup", backup_type);
+        let start_time = SystemTime::now();
+        
+        // Create backup directory if it doesn't exist
+        std::fs::create_dir_all(&self.backup_path)?;
+        
+        let backup_id = format!("backup_{}", 
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs());
+        let backup_file = format!("{}/{}.db", self.backup_path, backup_id);
+        
+        // Perform integrity check before backup
+        let integrity_result = self.perform_integrity_check()?;
+        if !integrity_result.is_valid {
+            return Err(StorageError::BackupFailed(
+                "Cannot create backup: data integrity check failed".to_string()
+            ));
+        }
+        
+        // Create backup by copying the database
+        let backup_db = sled::open(&backup_file)?;
+        
+        // Copy all trees
+        for tree_name in ["blocks", "transactions", "balances", "metadata", "wallets", "backups", "integrity"] {
+            if let Ok(source_tree) = self.db.open_tree(tree_name) {
+                let backup_tree = backup_db.open_tree(tree_name)?;
+                for result in source_tree.iter() {
+                    let (key, value) = result?;
+                    backup_tree.insert(key, value)?;
+                }
+                backup_tree.flush()?;
+            }
+        }
+        
+        backup_db.flush()?;
+        drop(backup_db);
+        
+        // Get backup file size
+        let backup_size = std::fs::metadata(&backup_file)?.len();
+        
+        let backup_info = BackupInfo {
+            backup_id: backup_id.clone(),
+            created_at: chrono::Utc::now(),
+            size_bytes: backup_size,
+            block_count: integrity_result.block_count,
+            transaction_count: integrity_result.transaction_count,
+            integrity_hash: integrity_result.checksum,
+            backup_type,
+        };
+        
+        // Store backup information
+        self.backups_tree.insert(&backup_id, serde_json::to_vec(&backup_info)?)?;
+        self.flush()?;
+        
+        let duration = start_time.elapsed().unwrap_or_default();
+        info!("Backup {} created successfully in {:?}. Size: {} bytes", 
+              backup_id, duration, backup_size);
+        
+        Ok(backup_info)
+    }
+
+    /// Restore from a backup
+    /// 
+    /// # Arguments
+    /// * `backup_id` - ID of the backup to restore from
+    /// 
+    /// # Returns
+    /// * `Result<()>` - Ok if restored successfully
+    pub fn restore_from_backup(&self, backup_id: &str) -> std::result::Result<(), StorageError> {
+        info!("Restoring from backup: {}", backup_id);
+        
+        // Get backup information
+        let backup_data = self.backups_tree.get(backup_id)?
+            .ok_or_else(|| StorageError::RecoveryFailed(
+                format!("Backup {} not found", backup_id)
+            ))?;
+        
+        let backup_info: BackupInfo = serde_json::from_slice(&backup_data)?;
+        let backup_file = format!("{}/{}.db", self.backup_path, backup_id);
+        
+        // Verify backup file exists
+        if !std::path::Path::new(&backup_file).exists() {
+            return Err(StorageError::RecoveryFailed(
+                format!("Backup file not found: {}", backup_file)
+            ));
+        }
+        
+        // Create temporary backup of current state
+        let temp_backup = self.create_backup(BackupType::Full)?;
+        info!("Created temporary backup {} before restoration", temp_backup.backup_id);
+        
+        // Close current database connections
+        drop(self.blocks_tree.clone());
+        drop(self.transactions_tree.clone());
+        drop(self.balances_tree.clone());
+        drop(self.metadata_tree.clone());
+        drop(self.wallets_tree.clone());
+        drop(self.backups_tree.clone());
+        drop(self.integrity_tree.clone());
+        
+        // Replace database with backup
+        let current_db_path = &self.db_path;
+        let temp_path = format!("{}.temp", current_db_path);
+        
+        // Move current database to temp location
+        if std::path::Path::new(current_db_path).exists() {
+            std::fs::rename(current_db_path, &temp_path)?;
+        }
+        
+        // Copy backup to current location
+        std::fs::copy(&backup_file, current_db_path)?;
+        
+        info!("Successfully restored from backup {}. Restored {} blocks and {} transactions", 
+              backup_id, backup_info.block_count, backup_info.transaction_count);
+        
+        Ok(())
+    }
+
+    /// Get storage health status
+    /// 
+    /// # Returns
+    /// * `Result<StorageHealth>` - Current storage health status
+    pub fn get_storage_health(&self) -> std::result::Result<StorageHealth, StorageError> {
+        // Get disk usage information
+        let current_path = &self.db_path;
+        let metadata = std::fs::metadata(current_path)?;
+        let total_size = metadata.len();
+        
+        // Calculate available space (simplified)
+        let available_space = 1_000_000_000; // 1GB placeholder
+        let disk_usage_percent = (total_size as f64 / (total_size + available_space) as f64) * 100.0;
+        
+        // Get last integrity check
+        let last_integrity_check = if let Some(data) = self.integrity_tree.get("last_check")? {
+            let result: IntegrityCheckResult = serde_json::from_slice(&data)?;
+            Some(result.checked_at)
+        } else {
+            None
+        };
+        
+        // Determine backup status
+        let backup_status = if let Some(data) = self.backups_tree.get("latest")? {
+            let backup_info: BackupInfo = serde_json::from_slice(&data)?;
+            let days_since_backup = chrono::Utc::now().signed_duration_since(backup_info.created_at).num_days();
+            if days_since_backup > 7 {
+                BackupStatus::Outdated
+            } else {
+                BackupStatus::UpToDate
+            }
+        } else {
+            BackupStatus::Failed
+        };
+        
+        // Check for corruption
+        let corruption_detected = if let Some(data) = self.integrity_tree.get("last_check")? {
+            let result: IntegrityCheckResult = serde_json::from_slice(&data)?;
+            !result.is_valid
+        } else {
+            false
+        };
+        
+        let health = StorageHealth {
+            is_healthy: !corruption_detected && disk_usage_percent < 90.0,
+            disk_usage_percent,
+            available_space_bytes: available_space,
+            last_integrity_check,
+            corruption_detected,
+            backup_status,
+            performance_metrics: PerformanceMetrics {
+                read_operations_per_second: 1000.0, // Placeholder
+                write_operations_per_second: 500.0,  // Placeholder
+                average_read_latency_ms: 1.0,        // Placeholder
+                average_write_latency_ms: 2.0,       // Placeholder
+                cache_hit_rate: 0.85,                // Placeholder
+            },
+        };
+        
+        Ok(health)
+    }
+
+    /// List all available backups
+    /// 
+    /// # Returns
+    /// * `Result<Vec<BackupInfo>>` - List of all backups
+    pub fn list_backups(&self) -> std::result::Result<Vec<BackupInfo>, StorageError> {
+        let mut backups = Vec::new();
+        
+        for result in self.backups_tree.iter() {
+            let (_, value) = result?;
+            let backup_info: BackupInfo = serde_json::from_slice(&value)?;
+            backups.push(backup_info);
+        }
+        
+        // Sort by creation date (newest first)
+        backups.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        
+        Ok(backups)
+    }
+
+    /// Clean up old backups
+    /// 
+    /// # Arguments
+    /// * `keep_count` - Number of recent backups to keep
+    /// 
+    /// # Returns
+    /// * `Result<usize>` - Number of backups cleaned up
+    pub fn cleanup_old_backups(&self, keep_count: usize) -> std::result::Result<usize, StorageError> {
+        let mut backups = self.list_backups()?;
+        
+        if backups.len() <= keep_count {
+            return Ok(0);
+        }
+        
+        let to_remove = backups.split_off(keep_count);
+        let mut removed_count = 0;
+        
+        for backup in to_remove {
+            // Remove backup file
+            let backup_file = format!("{}/{}.db", self.backup_path, backup.backup_id);
+            let backup_path = std::path::Path::new(&backup_file);
+            if backup_path.exists() && backup_path.is_file() {
+                std::fs::remove_file(&backup_file)?;
+            }
+            
+            // Remove backup record
+            self.backups_tree.remove(&backup.backup_id)?;
+            removed_count += 1;
+        }
+        
+        self.flush()?;
+        info!("Cleaned up {} old backups", removed_count);
+        
+        Ok(removed_count)
+    }
+    
+    /// Close the database properly
+    /// 
+    /// # Returns
+    /// * `Result<()>` - Ok if closed successfully
+    pub fn close(&self) -> std::result::Result<(), StorageError> {
+        info!("Closing blockchain storage...");
+        self.flush()?;
+        // The Arc will be dropped when the last reference is dropped
         Ok(())
     }
 }

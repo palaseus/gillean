@@ -53,7 +53,7 @@ RETURN
     assert!(contract.is_some());
     
     // Call the contract
-    let _result = blockchain.call_contract(
+    blockchain.call_contract(
         "bob".to_string(),
         contract_address.clone(),
         "increment".to_string(),

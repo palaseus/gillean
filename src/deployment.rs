@@ -264,12 +264,11 @@ impl DeploymentManager {
         }
         
         // Validate security configuration
-        if self.config.security.tls_enabled {
-            if self.config.security.tls_cert_path.is_none() || self.config.security.tls_key_path.is_none() {
-                return Err(BlockchainError::InvalidInput(
-                    "TLS certificate and key paths required when TLS is enabled".to_string()
-                ));
-            }
+        if self.config.security.tls_enabled
+            && (self.config.security.tls_cert_path.is_none() || self.config.security.tls_key_path.is_none()) {
+            return Err(BlockchainError::InvalidInput(
+                "TLS certificate and key paths required when TLS is enabled".to_string()
+            ));
         }
         
         // Validate database configuration
@@ -475,8 +474,7 @@ impl DeploymentUtils {
     }
     
     fn generate_systemd_service(_config: &DeploymentConfig) -> String {
-        format!(
-            r#"[Unit]
+        r#"[Unit]
 Description=Gillean Blockchain Node
 After=network.target
 
@@ -493,8 +491,7 @@ StandardError=journal
 SyslogIdentifier=gillean
 
 [Install]
-WantedBy=multi-user.target"#
-        )
+WantedBy=multi-user.target"#.to_string()
     }
     
     fn generate_docker_compose(config: &DeploymentConfig) -> String {

@@ -245,10 +245,15 @@ impl FormalVerifier {
 
     pub async fn verify_contract(&self, contract_code: &str, contract_id: &str) -> Vec<VerificationResult> {
         let mut results = Vec::new();
-        let rules = self.verification_rules.read().unwrap();
+        
+        // Clone rules to avoid holding lock across await
+        let rules: Vec<_> = {
+            let rules = self.verification_rules.read().unwrap();
+            rules.values().cloned().collect()
+        };
 
-        for (_rule_id, rule) in rules.iter() {
-            let result = self.apply_verification_rule(rule, contract_code, contract_id).await;
+        for rule in rules {
+            let result = self.apply_verification_rule(&rule, contract_code, contract_id).await;
             results.push(result);
         }
 

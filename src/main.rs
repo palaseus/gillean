@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 use log::{info, warn, error, debug};
 use std::io::{self, Write};
+use std::collections::HashMap;
 use gillean::{
     Blockchain, Result, BlockchainError, BLOCKCHAIN_VERSION,
     crypto::{KeyPair, PublicKey}, BlockchainMonitor,
@@ -550,30 +551,36 @@ async fn main() -> Result<()> {
     std::fs::create_dir_all("data/contract_toolkits")?;
     std::fs::create_dir_all("data/databases")?;
 
-    // Initialize storage and blockchain based on consensus type
-    let storage = std::sync::Arc::new(BlockchainStorage::new("./data/blockchain_db")?);
-    let mut blockchain = if cli.consensus.to_lowercase() == "pos" {
-        match Blockchain::new_pos(cli.reward, cli.min_stake, cli.max_validators) {
-            Ok(bc) => {
-                info!("Created PoS blockchain with min_stake={}, max_validators={}", cli.min_stake, cli.max_validators);
-                bc
-            }
-            Err(e) => {
-                error!("Failed to create PoS blockchain: {}", e);
-                return Err(e);
-            }
-        }
+    // Initialize storage and blockchain based on consensus type (only for non-API commands)
+    let (storage, mut blockchain) = if matches!(cli.command, Some(Commands::StartApi { .. })) {
+        // For API commands, don't initialize storage here - it will be done in the command handler
+        (std::sync::Arc::new(BlockchainStorage::new("./data/blockchain_db")?), Blockchain::new_pow(cli.difficulty, cli.reward)?)
     } else {
-        match Blockchain::with_storage(cli.difficulty, cli.reward, &storage) {
-            Ok(bc) => {
-                info!("Loaded PoW blockchain from storage with difficulty {} and reward {}", cli.difficulty, cli.reward);
-                bc
+        let storage = std::sync::Arc::new(BlockchainStorage::new("./data/blockchain_db")?);
+        let blockchain = if cli.consensus.to_lowercase() == "pos" {
+            match Blockchain::new_pos(cli.reward, cli.min_stake, cli.max_validators) {
+                Ok(bc) => {
+                    info!("Created PoS blockchain with min_stake={}, max_validators={}", cli.min_stake, cli.max_validators);
+                    bc
+                }
+                Err(e) => {
+                    error!("Failed to create PoS blockchain: {}", e);
+                    return Err(e);
+                }
             }
-            Err(e) => {
-                error!("Failed to load blockchain from storage: {}", e);
-                return Err(e);
+        } else {
+            match Blockchain::with_storage(cli.difficulty, cli.reward, &storage) {
+                Ok(bc) => {
+                    info!("Loaded PoW blockchain from storage with difficulty {} and reward {}", cli.difficulty, cli.reward);
+                    bc
+                }
+                Err(e) => {
+                    error!("Failed to load blockchain from storage: {}", e);
+                    return Err(e);
+                }
             }
-        }
+        };
+        (storage, blockchain)
     };
 
     // Handle commands
@@ -821,7 +828,11 @@ async fn run_demo(blockchain: &mut Blockchain, storage: &std::sync::Arc<Blockcha
         ("bob".to_string(), 100.0),
     ]);
     
-    let channel_id = channel_manager.open_channel(participants, initial_balance, 3600).await?;
+    let participant_keys = HashMap::from([
+        ("alice".to_string(), vec![1u8; 32]),
+        ("bob".to_string(), vec![2u8; 32]),
+    ]);
+    let channel_id = channel_manager.open_channel(participants, participant_keys, initial_balance, 3600, 1000.0).await?;
     println!("✅ Opened state channel: {}", channel_id);
     
     // Update channel state
@@ -830,8 +841,8 @@ async fn run_demo(blockchain: &mut Blockchain, storage: &std::sync::Arc<Blockcha
         ("bob".to_string(), 120.0),
     ]);
     let signatures = std::collections::HashMap::from([
-        ("alice".to_string(), vec![1, 2, 3]),
-        ("bob".to_string(), vec![4, 5, 6]),
+        ("alice".to_string(), vec![1u8; 64]), // 64-byte mock signature
+        ("bob".to_string(), vec![2u8; 64]), // 64-byte mock signature
     ]);
     
     channel_manager.update_channel(&channel_id, new_balance, signatures).await?;
@@ -843,8 +854,8 @@ async fn run_demo(blockchain: &mut Blockchain, storage: &std::sync::Arc<Blockcha
         ("bob".to_string(), 130.0),
     ]);
     let final_signatures = std::collections::HashMap::from([
-        ("alice".to_string(), vec![7, 8, 9]),
-        ("bob".to_string(), vec![10, 11, 12]),
+        ("alice".to_string(), vec![3u8; 64]), // 64-byte mock signature
+        ("bob".to_string(), vec![4u8; 64]), // 64-byte mock signature
     ]);
     
     channel_manager.close_channel(&channel_id, final_balance, final_signatures).await?;
@@ -1537,8 +1548,9 @@ async fn start_api_server(address: &str, db_path: &str) -> Result<()> {
     // Load blockchain from storage
     let blockchain = Blockchain::with_storage(4, 50.0, &storage)?;
     
-    // Initialize wallet manager
-    let wallet_manager = WalletManager::with_storage(db_path.to_string());
+    // Initialize wallet manager with shared storage
+    let mut wallet_manager = WalletManager::new();
+    wallet_manager.set_storage_path(db_path.to_string());
     
     // Create application state
     let state = AppState {
@@ -1548,6 +1560,7 @@ async fn start_api_server(address: &str, db_path: &str) -> Result<()> {
         did_system: None, // TODO: Initialize when needed
         governance: None, // TODO: Initialize when needed
         simulation_manager: None, // TODO: Initialize when needed
+        storage: storage.clone(),
         storage_path: db_path.to_string(),
         start_time: std::time::Instant::now(),
     };
@@ -1574,6 +1587,11 @@ async fn start_api_server(address: &str, db_path: &str) -> Result<()> {
 
     // Start the server
     start_server(state, address).await?;
+    
+    // Cleanup storage on shutdown
+    info!("Cleaning up storage...");
+    storage.close()?;
+    info!("Storage cleanup complete");
 
     Ok(())
 }
@@ -2097,10 +2115,16 @@ async fn open_state_channel(
     println!("⏱️  Timeout: {} seconds", timeout);
     
     // Open channel
+    let participant_keys = HashMap::from([
+        ("alice".to_string(), vec![1u8; 32]),
+        ("bob".to_string(), vec![2u8; 32]),
+    ]);
     let channel_id = channel_manager.open_channel(
         participants,
+        participant_keys,
         initial_balance_map,
         timeout,
+        1000.0,
     ).await?;
     
     println!("✅ State channel opened successfully!");
@@ -2137,8 +2161,8 @@ async fn update_state_channel(
     
     // Create mock signatures (in a real app, these would be actual signatures)
     let signatures = std::collections::HashMap::from([
-        ("participant1".to_string(), vec![1, 2, 3]),
-        ("participant2".to_string(), vec![4, 5, 6]),
+        ("participant1".to_string(), vec![1u8; 64]), // 64-byte mock signature
+        ("participant2".to_string(), vec![2u8; 64]), // 64-byte mock signature
     ]);
     
     println!("🆔 Channel ID: {}", channel_id);
@@ -2181,8 +2205,8 @@ async fn close_state_channel(
     
     // Create mock signatures (in a real app, these would be actual signatures)
     let signatures = std::collections::HashMap::from([
-        ("participant1".to_string(), vec![1, 2, 3]),
-        ("participant2".to_string(), vec![4, 5, 6]),
+        ("participant1".to_string(), vec![1u8; 64]), // 64-byte mock signature
+        ("participant2".to_string(), vec![2u8; 64]), // 64-byte mock signature
     ]);
     
     println!("🆔 Channel ID: {}", channel_id);

@@ -545,6 +545,9 @@ impl BlockchainStorage {
         
         self.save_metadata(&metadata)?;
         
+        // Ensure all changes are flushed to disk
+        self.flush()?;
+        
         info!("Successfully saved blockchain to storage");
         Ok(())
     }

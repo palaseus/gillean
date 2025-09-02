@@ -1157,7 +1157,13 @@ impl Blockchain {
             Err(_) => {
                 // Create new blockchain if storage is empty or corrupted
                 info!("Creating new blockchain (storage was empty or corrupted)");
-                Self::new_pow(difficulty, mining_reward) // Assuming new_pow for now
+                let new_blockchain = Self::new_pow(difficulty, mining_reward)?;
+                
+                // Save the new blockchain with genesis block to storage
+                storage.save_blockchain(&new_blockchain)?;
+                info!("Saved new blockchain with genesis block to storage");
+                
+                Ok(new_blockchain)
             }
         }
     }

@@ -76,21 +76,12 @@ class BlockchainNode:
             # Create database directory
             os.makedirs(self.config.db_path, exist_ok=True)
             
-            # Start the node
+            # Start the node using the correct command structure
             cmd = [
-                "cargo", "run", "--", "start-api",
+                "./target/release/gillean", "start-api",
                 "--address", f"127.0.0.1:{self.config.port}",
-                "--db-path", self.config.db_path,
-                "--consensus", self.config.consensus_type,
-                "--difficulty", str(self.config.difficulty),
-                "--reward", str(self.config.reward)
+                "--db-path", self.config.db_path
             ]
-            
-            if self.config.consensus_type == "pos":
-                cmd.extend([
-                    "--min-stake", str(self.config.min_stake),
-                    "--max-validators", str(self.config.max_validators)
-                ])
             
             self.process = subprocess.Popen(
                 cmd,
@@ -220,7 +211,7 @@ class BlockchainTestSuite:
             config = NodeConfig(
                 id=i,
                 port=base_port + i,
-                db_path=f"./data/test_node_{i}_db",
+                db_path=f"./data/test_node_{i}_db_{int(time.time())}_{i}",
                 consensus_type="pow" if i == 0 else "pos",  # First node is PoW, others are PoS
                 difficulty=4 + i,  # Varying difficulty
                 reward=50.0 + (i * 10),  # Varying rewards
@@ -233,9 +224,20 @@ class BlockchainTestSuite:
         """Start all blockchain nodes"""
         logger.info(f"Starting {self.num_nodes} blockchain nodes...")
         
-        # Start nodes concurrently
-        start_tasks = [node.start() for node in self.nodes]
-        results = await asyncio.gather(*start_tasks)
+        # Start nodes sequentially to avoid conflicts
+        results = []
+        for i, node in enumerate(self.nodes):
+            logger.info(f"Starting node {i}...")
+            result = await node.start()
+            results.append(result)
+            
+            if result:
+                logger.info(f"Node {i} started successfully")
+                # Wait a bit before starting the next node
+                if i < len(self.nodes) - 1:
+                    await asyncio.sleep(2)
+            else:
+                logger.error(f"Failed to start node {i}")
         
         success_count = sum(results)
         if success_count == self.num_nodes:
@@ -476,7 +478,11 @@ class BlockchainTestSuite:
                 await node.add_transaction(f"user{i}", f"user{i+1}", 1.0, f"Perf test {i}")
             
             tx_end = time.time()
-            tx_throughput = 10 / (tx_end - tx_start)
+            # Avoid division by zero
+            if tx_end > tx_start:
+                tx_throughput = 10 / (tx_end - tx_start)
+            else:
+                tx_throughput = 0.0
             
             # Measure block mining time
             mine_start = time.time()
@@ -543,7 +549,12 @@ class BlockchainTestSuite:
         report.append(f"Total Tests: {total_tests}")
         report.append(f"Passed: {passed_tests}")
         report.append(f"Failed: {failed_tests}")
-        report.append(f"Success Rate: {(passed_tests/total_tests)*100:.1f}%")
+        # Avoid division by zero
+        if total_tests > 0:
+            success_rate = (passed_tests/total_tests)*100
+        else:
+            success_rate = 0.0
+        report.append(f"Success Rate: {success_rate:.1f}%")
         report.append("")
         
         # Detailed Results

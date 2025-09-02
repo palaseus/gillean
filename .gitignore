@@ -87,6 +87,7 @@ coverage/index.html
 # Python blockchain test suite
 blockchain_test_suite.log
 blockchain_test_report.txt
+enhanced_blockchain_test_report.txt
 __pycache__/
 *.pyc
 *.pyo

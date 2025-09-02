@@ -553,8 +553,16 @@ async fn main() -> Result<()> {
 
     // Initialize storage and blockchain based on consensus type (only for non-API commands)
     let (storage, mut blockchain) = if matches!(cli.command, Some(Commands::StartApi { .. })) {
-        // For API commands, don't initialize storage here - it will be done in the command handler
-        (std::sync::Arc::new(BlockchainStorage::new("./data/blockchain_db")?), Blockchain::new_pow(cli.difficulty, cli.reward)?)
+        // For API commands, we'll handle storage creation in the command handler
+        // Create a temporary storage for now - it will be replaced in the command handler
+        let storage = std::sync::Arc::new(BlockchainStorage::new("./data/blockchain_db")?);
+        let blockchain = Blockchain::new_pow(cli.difficulty, cli.reward)?;
+        
+        // Save the blockchain with genesis block to storage
+        storage.save_blockchain(&blockchain)?;
+        info!("Saved blockchain with genesis block to storage for API server");
+        
+        (storage, blockchain)
     } else {
         let storage = std::sync::Arc::new(BlockchainStorage::new("./data/blockchain_db")?);
         let blockchain = if cli.consensus.to_lowercase() == "pos" {
@@ -1542,11 +1550,31 @@ async fn start_api_server(address: &str, db_path: &str) -> Result<()> {
     println!("\n🚀 Starting REST API server...");
     println!("{}", "=".repeat(50));
 
-    // Initialize storage
+    // Initialize storage using the provided db_path
     let storage = std::sync::Arc::new(BlockchainStorage::new(db_path)?);
     
-    // Load blockchain from storage
-    let blockchain = Blockchain::with_storage(4, 50.0, &storage)?;
+    // Load blockchain from storage, or create new one if empty
+    let blockchain = match Blockchain::with_storage(4, 50.0, &storage) {
+        Ok(bc) => {
+            if bc.blocks.is_empty() {
+                info!("Storage is empty, creating new blockchain with genesis block");
+                let new_bc = Blockchain::new_pow(4, 50.0)?;
+                storage.save_blockchain(&new_bc)?;
+                info!("Created and saved new blockchain with genesis block");
+                new_bc
+            } else {
+                info!("Loaded existing blockchain with {} blocks", bc.blocks.len());
+                bc
+            }
+        }
+        Err(_) => {
+            info!("Failed to load from storage, creating new blockchain with genesis block");
+            let new_bc = Blockchain::new_pow(4, 50.0)?;
+            storage.save_blockchain(&new_bc)?;
+            info!("Created and saved new blockchain with genesis block");
+            new_bc
+        }
+    };
     
     // Initialize wallet manager with shared storage
     let mut wallet_manager = WalletManager::new();

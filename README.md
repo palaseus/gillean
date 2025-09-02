@@ -209,7 +209,7 @@ Car no go space. Car go road.)
 ### Development Setup
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/gillean.git
+git clone https://github.com/palaseus/gillean.git
 cd gillean
 
 # Install dependencies
